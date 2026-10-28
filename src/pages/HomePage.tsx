@@ -2,15 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { GameMode, RoomDto, UserProfileDto } from '../types/domino';
 import { STRINGS } from '../constants/strings';
-import { JoinPrivateModal } from '../components/JoinPrivateModal';
-import { PlusCircle, KeyRound, Users, Play, RefreshCw, Lock, Sparkles } from 'lucide-react';
+import { RoomPasswordModal } from '../components/RoomPasswordModal';
+import { PlusCircle, KeyRound, Users, Play, RefreshCw, Lock, Sparkles, AlertCircle } from 'lucide-react';
 
 interface HomePageProps {
   user: UserProfileDto | null;
   onlineCount: number;
   onCreateRoomClick: () => void;
   onJoinPrivateClick: () => void;
-  onJoinRoom: (roomCode: string, password?: string) => void;
+  onJoinRoom: (roomCode: string, password?: string) => Promise<void>;
   onLoginClick: () => void;
   onAdminClick: () => void;
 }
@@ -27,7 +27,8 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [publicRooms, setPublicRooms] = useState<RoomDto[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [selectedModeFilter, setSelectedModeFilter] = useState<GameMode | 'all'>('all');
-  const [lockedRoomCode, setLockedRoomCode] = useState<string | null>(null);
+  const [selectedLockedRoom, setSelectedLockedRoom] = useState<RoomDto | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   const fetchRooms = async () => {
     setIsLoadingRooms(true);
@@ -86,9 +87,6 @@ export const HomePage: React.FC<HomePageProps> = ({
             العب دومينو على أصولها مع صحابك لايف
           </h2>
 
-          <p style={{ fontSize: '1.15rem', color: 'var(--text-muted)', marginBottom: '2rem', maxWidth: '680px', marginInline: 'auto' }}>
-            {STRINGS.appSubtitle}، بنظام القفلة والتعادل والـ 101 بنط وقوانين القهوة المصرية الحقيقية.
-          </p>
 
           {/* Main Action Buttons */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
@@ -224,6 +222,35 @@ export const HomePage: React.FC<HomePageProps> = ({
             </div>
           </div>
 
+          {joinError && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid #ef4444',
+                color: '#f87171',
+                padding: '0.75rem 1rem',
+                borderRadius: '0.75rem',
+                marginBottom: '1.25rem',
+                fontWeight: 600
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <AlertCircle size={18} />
+                <span>{joinError}</span>
+              </div>
+              <button
+                onClick={() => setJoinError(null)}
+                style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '1.1rem', padding: '0 0.5rem' }}
+                title="إغلاق"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {filteredRooms.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🀄</div>
@@ -282,13 +309,20 @@ export const HomePage: React.FC<HomePageProps> = ({
                         className="btn btn-primary"
                         style={{ padding: '0.45rem 1.15rem', fontSize: '0.85rem' }}
                         disabled={isFull}
-                        onClick={() => {
+                        onClick={async () => {
                           if (!user) {
                             onLoginClick();
                           } else if (room.isPrivate) {
-                            setLockedRoomCode(room.roomCode);
+                            setJoinError(null);
+                            setSelectedLockedRoom(room);
                           } else {
-                            onJoinRoom(room.roomCode);
+                            setJoinError(null);
+                            try {
+                              await onJoinRoom(room.roomCode);
+                            } catch (err: any) {
+                              setJoinError(err.message || 'تعذر دخول الأوضة، قد تكون مكتملة أو بدأت بالفعل');
+                              fetchRooms();
+                            }
                           }
                         }}
                       >
@@ -304,14 +338,14 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
-      {/* Password Entry Dialog for Locked Waiting Rooms */}
-      <JoinPrivateModal
-        isOpen={!!lockedRoomCode}
-        initialRoomCode={lockedRoomCode || ''}
-        onClose={() => setLockedRoomCode(null)}
-        onJoin={async (code, pwd) => {
-          onJoinRoom(code, pwd);
-          setLockedRoomCode(null);
+      {/* Password-Only Entry Dialog for Locked Rooms selected from the list */}
+      <RoomPasswordModal
+        isOpen={!!selectedLockedRoom}
+        room={selectedLockedRoom}
+        onClose={() => setSelectedLockedRoom(null)}
+        onJoin={async (roomCode, password) => {
+          await onJoinRoom(roomCode, password);
+          setSelectedLockedRoom(null);
         }}
       />
 
@@ -331,13 +365,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             <span>🀄</span>
             <span>{STRINGS.appTitle} - لعبة الدومينو المصرية الحقيقية أونلاين</span>
           </div>
-          <p style={{ maxWidth: '600px', margin: 0, fontSize: '0.85rem' }}>
-            مبنية بأحدث تقنيات الويب: .NET 8 Clean Architecture مع SignalR Real-Time و React TypeScript.
-          </p>
           <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', fontSize: '0.85rem' }}>
             <span>قوانين اللعب الرسمية</span>
-            <span>•</span>
-            <span>الدردشة الصوتية WebRTC</span>
             <span>•</span>
             <span onClick={onAdminClick} style={{ cursor: 'pointer', color: 'var(--platinum-silver)' }}>
               لوحة الأدمن

@@ -46,8 +46,8 @@ export const JoinPrivateModal: React.FC<JoinPrivateModalProps> = ({
       <div className="modal-content">
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Lock size={22} color="var(--gold-primary)" />
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--gold-primary)' }}>
+            <Lock size={22} color="var(--platinum-silver)" />
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
               {STRINGS.joinPrivateRoom}
             </h3>
           </div>

@@ -231,7 +231,7 @@ export const App: React.FC = () => {
             onlineCount={onlineCount}
             onCreateRoomClick={() => setIsCreateRoomOpen(true)}
             onJoinPrivateClick={() => setIsJoinPrivateOpen(true)}
-            onJoinRoom={(code) => handleJoinRoom(code)}
+            onJoinRoom={(code, pwd) => handleJoinRoom(code, pwd)}
             onLoginClick={() => api.auth.initiateGoogleLogin()}
             onAdminClick={() => setIsAdminOpen(true)}
           />
