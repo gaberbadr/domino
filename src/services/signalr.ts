@@ -1,7 +1,8 @@
 import * as signalR from '@microsoft/signalr';
 import { tokenStorage } from './api';
+import { appConfig } from '../config/appConfig';
 
-const HUB_URL = import.meta.env.VITE_HUB_URL || 'https://localhost:7237/hubs/game';
+const HUB_URL = appConfig.hubUrl;
 
 class SignalRService {
   private connection: signalR.HubConnection | null = null;

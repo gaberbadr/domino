@@ -8,8 +8,9 @@ import {
   RoomDto,
   UserProfileDto
 } from '../types/domino';
+import { appConfig } from '../config/appConfig';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://localhost:7237/api';
+const API_BASE = appConfig.apiUrl;
 
 export const tokenStorage = {
   getAccessToken: () => localStorage.getItem('accessToken'),
