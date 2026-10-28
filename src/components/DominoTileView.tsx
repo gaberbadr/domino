@@ -9,6 +9,7 @@ export interface DominoTileViewProps {
   isSelected?: boolean;
   isDisabled?: boolean;
   isDragging?: boolean;
+  isShaking?: boolean;
   size?: 'tiny' | 'small' | 'normal' | 'large';
   onClick?: () => void;
   draggable?: boolean;
@@ -19,6 +20,30 @@ export interface DominoTileViewProps {
   className?: string;
 }
 
+// Explicit, deterministic standard pip slot maps for 0–6 in 3x3 grid:
+// 0: top-left,   1: top-center,   2: top-right
+// 3: mid-left,   4: center,       5: mid-right
+// 6: bot-left,   7: bot-center,   8: bot-right
+const VERTICAL_PIP_MAP: Record<number, number[]> = {
+  0: [],
+  1: [4],
+  2: [0, 8],
+  3: [0, 4, 8],
+  4: [0, 2, 6, 8],
+  5: [0, 2, 4, 6, 8],
+  6: [0, 2, 3, 5, 6, 8] // 2 vertical columns of 3
+};
+
+const HORIZONTAL_PIP_MAP: Record<number, number[]> = {
+  0: [],
+  1: [4],
+  2: [0, 8],
+  3: [0, 4, 8],
+  4: [0, 2, 6, 8],
+  5: [0, 2, 4, 6, 8],
+  6: [0, 1, 2, 6, 7, 8] // 2 horizontal rows of 3
+};
+
 export const DominoTileView: React.FC<DominoTileViewProps> = ({
   tile,
   isConcealed = false,
@@ -27,6 +52,7 @@ export const DominoTileView: React.FC<DominoTileViewProps> = ({
   isSelected = false,
   isDisabled = false,
   isDragging = false,
+  isShaking = false,
   size = 'normal',
   onClick,
   draggable = false,
@@ -36,40 +62,35 @@ export const DominoTileView: React.FC<DominoTileViewProps> = ({
   style = {},
   className = ''
 }) => {
-  // Render pip dots for a half
+  // Render pip dots for a half using explicit standard mapping
   const renderPips = (count: number) => {
-    // 3x3 grid: [0:top-left, 1:top-mid, 2:top-right, 3:mid-left, 4:center, 5:mid-right, 6:bot-left, 7:bot-mid, 8:bot-right]
-    const pipSlots = [
-      /* 0: top-left   */ count >= 2,
-      /* 1: top-mid    */ false,
-      /* 2: top-right  */ count >= 4,
-      /* 3: mid-left   */ count === 6,
-      /* 4: center     */ count === 1 || count === 3 || count === 5,
-      /* 5: mid-right  */ count === 6,
-      /* 6: bot-left   */ count >= 4,
-      /* 7: bot-mid    */ false,
-      /* 8: bot-right  */ count >= 2
-    ];
+    const clampedCount = Math.max(0, Math.min(6, count));
+    const activeIndices = orientation === 'vertical'
+      ? VERTICAL_PIP_MAP[clampedCount] || []
+      : HORIZONTAL_PIP_MAP[clampedCount] || [];
 
     const pipSizeClass =
       size === 'tiny' ? 'pip-tiny' : size === 'small' ? 'pip-small' : size === 'large' ? 'pip-large' : 'pip-normal';
 
     return (
-      <div className="domino-tile-half">
-        {pipSlots.map((hasPip, index) => (
-          <div
-            key={index}
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            {hasPip && <div className={`domino-pip ${pipSizeClass}`} />}
-          </div>
-        ))}
+      <div className="domino-tile-half" data-pips={clampedCount}>
+        {Array.from({ length: 9 }).map((_, index) => {
+          const hasPip = activeIndices.includes(index);
+          return (
+            <div
+              key={index}
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {hasPip && <div className={`domino-pip ${pipSizeClass}`} />}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -98,7 +119,9 @@ export const DominoTileView: React.FC<DominoTileViewProps> = ({
     <div
       className={`domino-tile ${orientation} size-${size} ${isPlayable ? 'playable' : ''} ${
         isSelected ? 'selected' : ''
-      } ${isDisabled ? 'disabled' : ''} ${isDragging ? 'dragging' : ''} ${isDouble ? 'is-double' : ''} ${className}`}
+      } ${isDisabled ? 'disabled' : ''} ${isDragging ? 'dragging' : ''} ${
+        isShaking ? 'tile-rejected-shake' : ''
+      } ${isDouble ? 'is-double' : ''} ${className}`}
       style={style}
       draggable={draggable}
       onDragStart={onDragStart}

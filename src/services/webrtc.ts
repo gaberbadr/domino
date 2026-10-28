@@ -11,13 +11,15 @@ export interface VoicePeerState {
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' }
   ]
 };
 
 export class WebRtcVoiceService {
   private localStream: MediaStream | null = null;
   private peers: Map<string, VoicePeerState> = new Map();
+  private candidateQueue: Map<string, RTCIceCandidateInit[]> = new Map();
   private isMicMuted = true;
   private isSpeakerMuted = false;
   private audioContext: AudioContext | null = null;
@@ -37,6 +39,15 @@ export class WebRtcVoiceService {
 
   public async startLocalAudio(): Promise<boolean> {
     try {
+      if (this.localStream) {
+        this.isMicMuted = false;
+        this.localStream.getAudioTracks().forEach((track) => {
+          track.enabled = true;
+        });
+        this.attachLocalTracksToAllPeers();
+        return true;
+      }
+
       this.localStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -48,18 +59,44 @@ export class WebRtcVoiceService {
 
       this.isMicMuted = false;
       this.localStream.getAudioTracks().forEach((track) => {
-        track.enabled = !this.isMicMuted;
+        track.enabled = true;
       });
 
       this.setupSpeakingDetector('local', this.localStream);
+      this.attachLocalTracksToAllPeers();
       return true;
     } catch (err: any) {
-      const msg = err.name === 'NotAllowedError'
-        ? 'تم رفض إذن الوصول للمايكروفون من المتصفح'
-        : 'تعذر تشغيل المايكروفون، تأكد من توصيله';
+      const msg =
+        err.name === 'NotAllowedError'
+          ? 'تم رفض إذن الوصول للمايكروفون من المتصفح'
+          : 'تعذر تشغيل المايكروفون، تأكد من توصيله ومنحه الإذن';
       this.onError?.(msg);
       return false;
     }
+  }
+
+  private attachLocalTracksToAllPeers() {
+    if (!this.localStream) return;
+    const audioTrack = this.localStream.getAudioTracks()[0];
+    if (!audioTrack) return;
+
+    this.peers.forEach((peer) => {
+      if (peer.connection) {
+        const senders = peer.connection.getSenders();
+        const existingAudioSender = senders.find((s) => s.track?.kind === 'audio');
+        if (existingAudioSender) {
+          existingAudioSender.replaceTrack(audioTrack).catch((err) => {
+            console.warn('replaceTrack failed:', err);
+          });
+        } else {
+          try {
+            peer.connection.addTrack(audioTrack, this.localStream!);
+          } catch (err) {
+            console.warn('addTrack failed:', err);
+          }
+        }
+      }
+    });
   }
 
   public setMicMuted(muted: boolean) {
@@ -88,6 +125,13 @@ export class WebRtcVoiceService {
     return this.isSpeakerMuted;
   }
 
+  // Handle batch list of existing peers from SignalR JoinVoice
+  public async handleExistingPeers(existingPeers: { userId: string; displayName: string }[]) {
+    for (const peer of existingPeers) {
+      await this.handlePeerJoined(peer.userId, peer.displayName);
+    }
+  }
+
   public async handlePeerJoined(userId: string, userName: string) {
     if (this.peers.has(userId)) return;
 
@@ -99,6 +143,7 @@ export class WebRtcVoiceService {
       connection: peerConnection
     };
 
+    // Attach local track if mic is on
     if (this.localStream) {
       this.localStream.getTracks().forEach((track) => {
         peerConnection.addTrack(track, this.localStream!);
@@ -108,8 +153,11 @@ export class WebRtcVoiceService {
     peerConnection.ontrack = (event) => {
       const audio = new Audio();
       audio.srcObject = event.streams[0];
+      audio.autoplay = true;
       audio.muted = this.isSpeakerMuted;
-      audio.play().catch(() => {});
+      audio.play().catch(() => {
+        // Autoplay policy fallback
+      });
       peerState.audioElement = audio;
 
       this.setupSpeakingDetector(userId, event.streams[0]);
@@ -124,7 +172,7 @@ export class WebRtcVoiceService {
     this.peers.set(userId, peerState);
     this.notifyPeers();
 
-    // Create and send offer
+    // Create and send offer to newly discovered peer
     try {
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
@@ -156,6 +204,7 @@ export class WebRtcVoiceService {
       peerConnection.ontrack = (event) => {
         const audio = new Audio();
         audio.srcObject = event.streams[0];
+        audio.autoplay = true;
         audio.muted = this.isSpeakerMuted;
         audio.play().catch(() => {});
         peerState!.audioElement = audio;
@@ -177,6 +226,9 @@ export class WebRtcVoiceService {
       const offerDesc = new RTCSessionDescription(JSON.parse(sdp));
       await peerConnection.setRemoteDescription(offerDesc);
 
+      // Flush queued candidates
+      await this.flushCandidateQueue(fromUserId, peerConnection);
+
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
       await signalRService.sendAnswer(fromUserId, JSON.stringify(answer));
@@ -191,6 +243,9 @@ export class WebRtcVoiceService {
       try {
         const answerDesc = new RTCSessionDescription(JSON.parse(sdp));
         await peer.connection.setRemoteDescription(answerDesc);
+
+        // Flush queued candidates
+        await this.flushCandidateQueue(fromUserId, peer.connection);
       } catch (err) {
         console.error('Failed to set remote answer', fromUserId, err);
       }
@@ -198,14 +253,34 @@ export class WebRtcVoiceService {
   }
 
   public async handleReceiveIceCandidate(fromUserId: string, candidateStr: string) {
-    const peer = this.peers.get(fromUserId);
-    if (peer?.connection) {
-      try {
-        const candidate = new RTCIceCandidate(JSON.parse(candidateStr));
-        await peer.connection.addIceCandidate(candidate);
-      } catch (err) {
-        console.error('Failed to add ICE candidate', fromUserId, err);
+    try {
+      const candidateInit: RTCIceCandidateInit = JSON.parse(candidateStr);
+      const peer = this.peers.get(fromUserId);
+
+      if (peer?.connection && peer.connection.remoteDescription && peer.connection.remoteDescription.type) {
+        await peer.connection.addIceCandidate(new RTCIceCandidate(candidateInit));
+      } else {
+        // Queue until remote description is set
+        const queue = this.candidateQueue.get(fromUserId) || [];
+        queue.push(candidateInit);
+        this.candidateQueue.set(fromUserId, queue);
       }
+    } catch (err) {
+      console.warn('Failed to handle ICE candidate', fromUserId, err);
+    }
+  }
+
+  private async flushCandidateQueue(userId: string, pc: RTCPeerConnection) {
+    const queue = this.candidateQueue.get(userId);
+    if (queue && queue.length > 0) {
+      for (const cand of queue) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(cand));
+        } catch (err) {
+          console.warn('Failed to add queued candidate:', err);
+        }
+      }
+      this.candidateQueue.delete(userId);
     }
   }
 
@@ -218,6 +293,7 @@ export class WebRtcVoiceService {
         peer.audioElement.srcObject = null;
       }
       this.peers.delete(userId);
+      this.candidateQueue.delete(userId);
       this.notifyPeers();
     }
   }
@@ -231,6 +307,7 @@ export class WebRtcVoiceService {
       }
     });
     this.peers.clear();
+    this.candidateQueue.clear();
 
     if (this.localStream) {
       this.localStream.getTracks().forEach((track) => track.stop());
@@ -252,6 +329,9 @@ export class WebRtcVoiceService {
       if (!this.audioContext) {
         this.audioContext = new AudioCtx();
       }
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
+      }
 
       const source = this.audioContext.createMediaStreamSource(stream);
       const analyser = this.audioContext.createAnalyser();
@@ -272,7 +352,7 @@ export class WebRtcVoiceService {
         }
         const average = sum / bufferLength;
 
-        const isNowSpeaking = average > 18;
+        const isNowSpeaking = average > 16;
         if (isNowSpeaking !== speaking) {
           speaking = isNowSpeaking;
           if (id === 'local') {
@@ -291,7 +371,7 @@ export class WebRtcVoiceService {
 
       checkAudio();
     } catch {
-      // AudioContext failure fallback
+      // AudioContext fallback
     }
   }
 

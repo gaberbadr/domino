@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { GameMode, RoomDto, UserProfileDto } from '../types/domino';
 import { STRINGS } from '../constants/strings';
-import { PlusCircle, KeyRound, Users, Play, RefreshCw, Trophy, Zap, Shield } from 'lucide-react';
+import { JoinPrivateModal } from '../components/JoinPrivateModal';
+import { PlusCircle, KeyRound, Users, Play, RefreshCw, Lock, Sparkles } from 'lucide-react';
 
 interface HomePageProps {
   user: UserProfileDto | null;
   onlineCount: number;
   onCreateRoomClick: () => void;
   onJoinPrivateClick: () => void;
-  onJoinRoom: (roomCode: string) => void;
+  onJoinRoom: (roomCode: string, password?: string) => void;
   onLoginClick: () => void;
   onAdminClick: () => void;
 }
@@ -26,6 +27,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [publicRooms, setPublicRooms] = useState<RoomDto[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [selectedModeFilter, setSelectedModeFilter] = useState<GameMode | 'all'>('all');
+  const [lockedRoomCode, setLockedRoomCode] = useState<string | null>(null);
 
   const fetchRooms = async () => {
     setIsLoadingRooms(true);
@@ -54,9 +56,9 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* Hero Section */}
       <section
         style={{
-          background: 'linear-gradient(180deg, rgba(20, 28, 43, 0.8) 0%, rgba(10, 14, 23, 1) 100%)',
+          background: 'linear-gradient(180deg, rgba(39, 23, 12, 0.85) 0%, rgba(20, 17, 15, 1) 100%)',
           padding: '3rem 0 2rem',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+          borderBottom: '1px solid rgba(229, 231, 235, 0.1)',
           textAlign: 'center'
         }}
       >
@@ -66,24 +68,25 @@ export const HomePage: React.FC<HomePageProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.5rem',
-              background: 'rgba(212, 175, 55, 0.1)',
-              border: '1px solid rgba(212, 175, 55, 0.3)',
+              background: 'rgba(111, 71, 42, 0.25)',
+              border: '1px solid rgba(128, 83, 49, 0.5)',
               padding: '0.4rem 1rem',
               borderRadius: '9999px',
-              color: 'var(--gold-primary)',
+              color: '#e2ba9b',
               fontSize: '0.9rem',
               fontWeight: 700,
               marginBottom: '1.25rem'
             }}
           >
+            <Sparkles size={16} />
             <span>🇪🇬 قعدة الدومينو المصرية الأصيلة في أي وقت ومن أي مكان</span>
           </div>
 
-          <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3.25rem)', fontWeight: 900, color: '#f8fafc', lineHeight: 1.2, marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3.25rem)', fontWeight: 900, color: 'var(--text-main)', lineHeight: 1.2, marginBottom: '1rem' }}>
             العب دومينو على أصولها مع صحابك لايف
           </h2>
 
-          <p style={{ fontSize: '1.15rem', color: '#94a3b8', marginBottom: '2rem', maxWidth: '680px', marginInline: 'auto' }}>
+          <p style={{ fontSize: '1.15rem', color: 'var(--text-muted)', marginBottom: '2rem', maxWidth: '680px', marginInline: 'auto' }}>
             {STRINGS.appSubtitle}، بنظام القفلة والتعادل والـ 101 بنط وقوانين القهوة المصرية الحقيقية.
           </p>
 
@@ -109,7 +112,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 else onJoinPrivateClick();
               }}
             >
-              <KeyRound size={20} color="var(--gold-primary)" />
+              <KeyRound size={20} color="var(--platinum-silver)" />
               <span>{STRINGS.joinPrivateRoom}</span>
             </button>
           </div>
@@ -123,16 +126,16 @@ export const HomePage: React.FC<HomePageProps> = ({
             {/* 1v1 Individual Card */}
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <span className="badge badge-gold">1 ضد 1</span>
+                <span className="badge badge-mocha">1 ضد 1</span>
                 <span style={{ fontSize: '1.5rem' }}>⚔️</span>
               </div>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
                 {STRINGS.modeIndividual}
               </h3>
-              <p style={{ fontSize: '0.9rem', color: '#94a3b8', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
                 {STRINGS.modeIndividualDesc}، والفائز بالجولة هو اللي يبدأ الجولة اللي بعدها.
               </p>
-              <div style={{ fontSize: '0.8rem', color: 'var(--gold-primary)', fontWeight: 600 }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--platinum-silver)', fontWeight: 600 }}>
                 ✓ السحبة 14 ورقة عند عدم وجود لعب
               </div>
             </div>
@@ -146,40 +149,40 @@ export const HomePage: React.FC<HomePageProps> = ({
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
                 {STRINGS.modeTriple}
               </h3>
-              <p style={{ fontSize: '0.9rem', color: '#94a3b8', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
                 {STRINGS.modeTripleDesc}، والفائز هو صاحب أقل عدد بنط فريد في القفلة.
               </p>
-              <div style={{ fontSize: '0.8rem', color: '#60a5fa', fontWeight: 600 }}>
-                ✓ بدون سحبة، تعدية فورية (Skip)
+              <div style={{ fontSize: '0.8rem', color: 'var(--platinum-silver)', fontWeight: 600 }}>
+                ✓ استبعاد ورقة البلاطة (0-0) ومفيش سحبة
               </div>
             </div>
 
             {/* 4P Quadruple Card */}
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <span className="badge badge-green">فريقين (2v2)</span>
-                <span style={{ fontSize: '1.5rem' }}>🤝</span>
+                <span className="badge badge-green">4 لعيبة (2 ضد 2)</span>
+                <span style={{ fontSize: '1.5rem' }}>👥</span>
               </div>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
                 {STRINGS.modeQuadruple}
               </h3>
-              <p style={{ fontSize: '0.9rem', color: '#94a3b8', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-                {STRINGS.modeQuadrupleDesc}، والقفلة بتقارن أقل ورقة فردية في كل فريق.
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+                {STRINGS.modeQuadrupleDesc}، الفائز في القفلة هو الفريق صاحب أقل مجموع فردي.
               </p>
-              <div style={{ fontSize: '0.8rem', color: '#34d399', fontWeight: 600 }}>
-                ✓ ميزة طلب بداية الجولة من الزميل
+              <div style={{ fontSize: '0.8rem', color: 'var(--platinum-silver)', fontWeight: 600 }}>
+                ✓ ميزة طلب اللعب بدلاً من الزميل البادئ
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Public Rooms Lobby */}
-      <section style={{ padding: '1rem 0 3rem', flex: 1 }}>
+      {/* Public Rooms Section */}
+      <section style={{ padding: '1rem 0 3.5rem', flex: 1 }}>
         <div className="container">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Users size={22} color="var(--gold-primary)" />
+              <Users size={22} color="var(--platinum-silver)" />
               <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
                 {STRINGS.publicRooms}
               </h3>
@@ -224,7 +227,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           {filteredRooms.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🀄</div>
-              <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#94a3b8', marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
                 {STRINGS.noPublicRooms}
               </p>
               <button
@@ -246,10 +249,18 @@ export const HomePage: React.FC<HomePageProps> = ({
                   <div key={room.id} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                        <span className={`badge ${room.mode === GameMode.Individual ? 'badge-gold' : room.mode === GameMode.Triple ? 'badge-blue' : 'badge-green'}`}>
-                          {room.mode === GameMode.Individual ? 'فردي (1v1)' : room.mode === GameMode.Triple ? 'ثلاثي (3P)' : 'رباعي (4P)'}
-                        </span>
-                        <span className="badge badge-gold" style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span className={`badge ${room.mode === GameMode.Individual ? 'badge-mocha' : room.mode === GameMode.Triple ? 'badge-blue' : 'badge-green'}`}>
+                            {room.mode === GameMode.Individual ? 'فردي (1v1)' : room.mode === GameMode.Triple ? 'ثلاثي (3P)' : 'رباعي (4P)'}
+                          </span>
+                          {room.isPrivate && (
+                            <span className="badge badge-silver" style={{ gap: '0.25rem' }} title="أوضة محمية برقم سري">
+                              <Lock size={11} />
+                              <span>مقفولة</span>
+                            </span>
+                          )}
+                        </div>
+                        <span className="badge badge-silver" style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}>
                           {room.roomCode}
                         </span>
                       </div>
@@ -257,7 +268,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                       <h4 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.35rem' }}>
                         {room.name}
                       </h4>
-                      <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '1rem' }}>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
                         المضيف: <strong style={{ color: '#fff' }}>{room.hostName}</strong>
                       </p>
                     </div>
@@ -272,12 +283,17 @@ export const HomePage: React.FC<HomePageProps> = ({
                         style={{ padding: '0.45rem 1.15rem', fontSize: '0.85rem' }}
                         disabled={isFull}
                         onClick={() => {
-                          if (!user) onLoginClick();
-                          else onJoinRoom(room.roomCode);
+                          if (!user) {
+                            onLoginClick();
+                          } else if (room.isPrivate) {
+                            setLockedRoomCode(room.roomCode);
+                          } else {
+                            onJoinRoom(room.roomCode);
+                          }
                         }}
                       >
-                        <Play size={14} />
-                        <span>{isFull ? 'مكتملة' : 'دخول'}</span>
+                        {room.isPrivate ? <Lock size={14} /> : <Play size={14} />}
+                        <span>{isFull ? 'مكتملة' : room.isPrivate ? 'دخول برقم سري' : 'دخول'}</span>
                       </button>
                     </div>
                   </div>
@@ -288,35 +304,46 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
+      {/* Password Entry Dialog for Locked Waiting Rooms */}
+      <JoinPrivateModal
+        isOpen={!!lockedRoomCode}
+        initialRoomCode={lockedRoomCode || ''}
+        onClose={() => setLockedRoomCode(null)}
+        onJoin={async (code, pwd) => {
+          onJoinRoom(code, pwd);
+          setLockedRoomCode(null);
+        }}
+      />
+
       {/* Footer */}
       <footer
         style={{
-          background: '#070a10',
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          background: '#0d0b09',
+          borderTop: '1px solid rgba(229, 231, 235, 0.08)',
           padding: '2rem 0',
           textAlign: 'center',
-          color: '#64748b',
+          color: '#8c8278',
           fontSize: '0.9rem'
         }}
       >
         <div className="container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--gold-primary)', fontWeight: 800 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--platinum-silver)', fontWeight: 800 }}>
             <span>🀄</span>
             <span>{STRINGS.appTitle} - لعبة الدومينو المصرية الحقيقية أونلاين</span>
           </div>
           <p style={{ maxWidth: '600px', margin: 0, fontSize: '0.85rem' }}>
-            مبنية بأحدث تقنيات الويب الحقيقية: .NET 8 Clean Architecture مع SignalR Real-Time و React TypeScript.
+            مبنية بأحدث تقنيات الويب: .NET 8 Clean Architecture مع SignalR Real-Time و React TypeScript.
           </p>
           <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', fontSize: '0.85rem' }}>
             <span>قوانين اللعب الرسمية</span>
             <span>•</span>
             <span>الدردشة الصوتية WebRTC</span>
             <span>•</span>
-            <span onClick={onAdminClick} style={{ cursor: 'pointer', color: 'var(--gold-primary)' }}>
+            <span onClick={onAdminClick} style={{ cursor: 'pointer', color: 'var(--platinum-silver)' }}>
               لوحة الأدمن
             </span>
           </div>
-          <span style={{ fontSize: '0.8rem', color: '#475569', marginTop: '0.5rem' }}>
+          <span style={{ fontSize: '0.8rem', color: '#5e564e', marginTop: '0.5rem' }}>
             جميع الحقوق محفوظة © {new Date().getFullYear()}
           </span>
         </div>

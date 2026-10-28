@@ -7,6 +7,7 @@ interface PlayerHandProps {
   hand: DominoTile[];
   legalMoves: LegalMoveDto[];
   isMyTurn: boolean;
+  rejectedTileId?: number | null;
   onTileClick: (tile: DominoTile) => void;
   onTileDragStartPlay?: (tile: DominoTile) => void;
 }
@@ -15,6 +16,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
   hand,
   legalMoves,
   isMyTurn,
+  rejectedTileId = null,
   onTileClick,
   onTileDragStartPlay
 }) => {
@@ -28,10 +30,8 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
   useEffect(() => {
     setOrderedTiles((prevOrdered) => {
       const currentIds = new Set(hand.map((t) => t.id));
-      // Keep existing ordered tiles that are still in hand
       const preserved = prevOrdered.filter((t) => currentIds.has(t.id));
       const preservedIds = new Set(preserved.map((t) => t.id));
-      // Find new tiles that were drawn and append them
       const newTiles = hand.filter((t) => !preservedIds.has(t.id));
       return [...preserved, ...newTiles];
     });
@@ -87,7 +87,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
     setDragOverIndex(null);
   };
 
-  // Accessible button reordering
+  // Accessible button reordering for keyboard/touch
   const moveSelectedTile = (direction: 'left' | 'right') => {
     if (selectedTileId === null) return;
     const currentIndex = orderedTiles.findIndex((t) => t.id === selectedTileId);
@@ -104,10 +104,10 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
     <div
       className="player-hand-container"
       style={{
-        background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(3, 7, 18, 0.99) 100%)',
-        borderTop: '2px solid rgba(212, 175, 55, 0.35)',
-        boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.75)',
-        padding: '0.65rem 1rem 0.85rem',
+        background: 'linear-gradient(180deg, rgba(32, 23, 16, 0.98) 0%, rgba(18, 13, 9, 0.99) 100%)',
+        borderTop: '2px solid rgba(229, 231, 235, 0.25)',
+        boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.8)',
+        padding: '0.55rem 1rem 0.75rem',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -123,26 +123,26 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
           justifyContent: 'space-between',
           width: '100%',
           maxWidth: '1000px',
-          marginBottom: '0.4rem',
+          marginBottom: '0.35rem',
           padding: '0 0.5rem'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)' }}>
             ورقك في اليد ({hand.length} ورقات)
           </span>
 
           <span
             style={{
               fontSize: '0.72rem',
-              color: '#94a3b8',
+              color: 'var(--text-muted)',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.25rem'
             }}
           >
             <MoveHorizontal size={13} />
-            <span>اسحب لترتيب الورق براحتك</span>
+            <span>اسحب بالماوس/اللمس لترتيب ورقك</span>
           </span>
         </div>
 
@@ -164,19 +164,19 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                 onClick={() => moveSelectedTile('right')}
                 className="btn btn-secondary"
                 style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem' }}
-                title="نقل الورقة المختارة لليمين"
+                title="تحريك الورقة يميناً"
               >
                 <ChevronRight size={14} />
               </button>
-              <span style={{ fontSize: '0.7rem', color: 'var(--gold-primary)', fontWeight: 700 }}>
-                ترتيب
+              <span style={{ fontSize: '0.7rem', color: 'var(--platinum-silver)', fontWeight: 700 }}>
+                ترتيب يدوي
               </span>
               <button
                 type="button"
                 onClick={() => moveSelectedTile('left')}
                 className="btn btn-secondary"
                 style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem' }}
-                title="نقل الورقة المختارة لليسار"
+                title="تحريك الورقة يساراً"
               >
                 <ChevronLeft size={14} />
               </button>
@@ -209,7 +209,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
           gap: orderedTiles.length > 8 ? '0.4rem' : '0.65rem',
           overflowX: 'auto',
           overflowY: 'hidden',
-          padding: '0.5rem 0.5rem 0.65rem',
+          padding: '0.4rem 0.5rem 0.6rem',
           maxWidth: '100%',
           width: '100%',
           justifyContent: orderedTiles.length <= 7 ? 'center' : 'flex-start',
@@ -222,6 +222,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
           const isSelected = selectedTileId === tile.id;
           const isBeingDragged = draggedTileIndex === index;
           const isTargeted = dragOverIndex === index && draggedTileIndex !== index;
+          const isShaking = rejectedTileId === tile.id;
 
           return (
             <div
@@ -250,6 +251,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                 isSelected={isSelected}
                 isDisabled={isMyTurn && !playable}
                 isDragging={isBeingDragged}
+                isShaking={isShaking}
                 draggable={true}
                 onDragStart={(e) => handleDragStart(e, index, tile)}
                 onDragEnd={handleDragEnd}

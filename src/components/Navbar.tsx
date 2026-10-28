@@ -25,8 +25,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header
       style={{
-        background: 'rgba(10, 14, 23, 0.9)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'rgba(26, 20, 16, 0.95)',
+        borderBottom: '1px solid rgba(229, 231, 235, 0.15)',
         backdropFilter: 'blur(10px)',
         position: 'sticky',
         top: 0,
@@ -45,21 +45,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               width: 40,
               height: 40,
               borderRadius: '0.75rem',
-              background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-              border: '2px solid var(--gold-primary)',
+              background: 'linear-gradient(135deg, var(--mocha-light) 0%, var(--mocha-dark) 100%)',
+              border: '2px solid var(--platinum-silver)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 12px var(--gold-glow)'
+              boxShadow: '0 0 12px var(--mocha-glow)'
             }}
           >
             <span style={{ fontSize: '1.25rem' }}>🀄</span>
           </div>
           <div>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.02em', margin: 0 }}>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.02em', margin: 0 }}>
               {STRINGS.appTitle}
             </h1>
-            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>اللعبة الجماعية أونلاين</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>اللعبة الجماعية أونلاين</span>
           </div>
         </div>
 
@@ -69,8 +69,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: '0.5rem',
-            background: 'rgba(16, 185, 129, 0.1)',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
+            background: 'rgba(16, 185, 129, 0.12)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
             padding: '0.35rem 0.85rem',
             borderRadius: '9999px',
             fontSize: '0.85rem',
@@ -98,11 +98,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   className="btn btn-secondary"
                   onClick={onAdminClick}
-                  style={{ padding: '0.5rem 0.85rem', fontSize: '0.85rem', borderColor: 'rgba(212, 175, 55, 0.4)' }}
+                  style={{ padding: '0.5rem 0.85rem', fontSize: '0.85rem', borderColor: 'var(--platinum-border)' }}
                   title={STRINGS.adminPanel}
                 >
-                  <ShieldCheck size={16} color="var(--gold-primary)" />
-                  <span style={{ color: 'var(--gold-primary)' }}>الأدمن</span>
+                  <ShieldCheck size={16} color="var(--platinum-primary)" />
+                  <span style={{ color: 'var(--platinum-primary)' }}>الأدمن</span>
                 </button>
               )}
 
@@ -112,8 +112,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
-                  background: '#141c2b',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: 'var(--bg-card)',
+                  border: '1px solid rgba(229, 231, 235, 0.15)',
                   padding: '0.4rem 0.75rem',
                   borderRadius: '0.75rem'
                 }}
@@ -123,21 +123,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                     width: 32,
                     height: 32,
                     borderRadius: '50%',
-                    background: '#1e293b',
+                    background: 'var(--mocha-dark)',
+                    border: '1px solid var(--mocha-border)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'var(--gold-primary)'
+                    color: 'var(--platinum-primary)'
                   }}
                 >
                   <User size={18} />
                 </div>
-                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#f8fafc' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
                   {user.fullName}
                 </span>
                 <button
                   onClick={onEditProfileClick}
-                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 2 }}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}
                   title={STRINGS.editProfile}
                 >
                   <Edit3 size={15} />

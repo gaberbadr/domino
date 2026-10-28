@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { GameMatchDto, BoardPlacedTile, GameMode, BoardEnd } from '../types/domino';
+import { GameMatchDto, BoardPlacedTile, GameMode, BoardEnd, MatchStatus } from '../types/domino';
 import { DominoTileView } from './DominoTileView';
 import { ConcealedHandView } from './ConcealedHandView';
 import { DominoBankView } from './DominoBankView';
+import { ExitConfirmationModal } from './ExitConfirmationModal';
 import { STRINGS } from '../constants/strings';
-import { Clock, Layers, SkipForward, Hand, ArrowLeftRight, Focus, LogOut, Volume2, Sliders } from 'lucide-react';
+import { Clock, SkipForward, Hand, LogOut, Volume2, Sliders, CornerDownLeft, CornerDownRight } from 'lucide-react';
 
 interface GameBoardProps {
   match: GameMatchDto;
@@ -35,28 +36,24 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   onOpenSoundboard,
   onOpenSoundSettings
 }) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [secondsRemaining, setSecondsRemaining] = useState<number>(30);
   const [autoSkipSeconds, setAutoSkipSeconds] = useState<number>(3);
   const [dragOverEnd, setDragOverEnd] = useState<BoardEnd | null>(null);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   const isMyTurn = match.currentTurnUserId === currentUserId;
   const currentTurnPlayer = match.players.find((p) => p.userId === match.currentTurnUserId);
 
-  // Find my seat index
+  // Find my seat index & relative seating
   const myIndex = match.players.findIndex((p) => p.userId === currentUserId);
   const myPlayer = match.players[myIndex] || match.players[0];
   const totalPlayers = match.players.length;
 
-  // Relative seating calculation:
-  // In 1v1: top = opponent
-  // In 3p: right = (myIndex + 1) % 3, top = (myIndex + 2) % 3
-  // In 4p: right = (myIndex + 1) % 4 (Opponent), top = (myIndex + 2) % 4 (Teammate), left = (myIndex + 3) % 4 (Opponent)
   let topPlayer = totalPlayers > 1 ? match.players[(myIndex + (totalPlayers === 3 ? 2 : totalPlayers === 4 ? 2 : 1)) % totalPlayers] : null;
   let rightPlayer = totalPlayers >= 3 ? match.players[(myIndex + 1) % totalPlayers] : null;
   let leftPlayer = totalPlayers === 4 ? match.players[(myIndex + 3) % totalPlayers] : null;
 
-  // Turn timer countdown synchronized with turnDeadlineUtc
+  // Turn timer countdown
   useEffect(() => {
     if (!match.turnDeadlineUtc) return;
 
@@ -93,20 +90,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     return () => clearInterval(timer);
   }, [canSkip, isMyTurn, onSkip]);
 
-  // Center the domino chain on board update
-  const centerBoard = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        left: scrollRef.current.scrollWidth / 2 - scrollRef.current.clientWidth / 2,
-        behavior: 'smooth'
-      });
-    }
-  };
-
-  useEffect(() => {
-    centerBoard();
-  }, [match.boardChain.length]);
-
   // Board Drop Handlers for Drag-to-Play
   const handleBoardDragOver = (e: React.DragEvent<HTMLDivElement>, end: BoardEnd) => {
     e.preventDefault();
@@ -128,6 +111,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     }
   };
 
+  // Chunk boardChain into snake rows (6-7 tiles per row) so entire chain fits on screen
+  const TILES_PER_ROW = 7;
+  const chainRows: BoardPlacedTile[][] = [];
+  for (let i = 0; i < match.boardChain.length; i += TILES_PER_ROW) {
+    chainRows.push(match.boardChain.slice(i, i + TILES_PER_ROW));
+  }
+
   return (
     <div
       className="game-table-container"
@@ -137,46 +127,46 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         flexDirection: 'column',
         position: 'relative',
         background: 'var(--bg-table)',
-        border: '4px solid #3d2712',
-        borderRadius: '1.5rem',
-        margin: '0.5rem 0.75rem',
+        border: '3px solid var(--table-border)',
+        borderRadius: '1.25rem',
+        margin: '0.4rem 0.65rem',
         overflow: 'hidden',
-        boxShadow: 'inset 0 0 70px rgba(0, 0, 0, 0.85), 0 12px 35px rgba(0, 0, 0, 0.6)'
+        boxShadow: 'inset 0 0 70px rgba(0, 0, 0, 0.85), 0 12px 35px rgba(0, 0, 0, 0.65)'
       }}
     >
-      {/* Top Header: Scoreboard & Turn Banner */}
+      {/* Top Header: Scoreboard & Distinct Controls Bar */}
       <div
         className="game-table-header"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0.5rem 1.25rem',
-          background: 'rgba(7, 10, 16, 0.82)',
-          borderBottom: '1px solid rgba(212, 175, 55, 0.25)',
+          padding: '0.45rem 1.15rem',
+          background: 'rgba(26, 18, 12, 0.88)',
+          borderBottom: '1px solid rgba(229, 231, 235, 0.15)',
           backdropFilter: 'blur(8px)',
           zIndex: 20
         }}
       >
         {/* Match info: Round & Score */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           <div>
-            <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block' }}>الجولة</span>
-            <strong style={{ fontSize: '1.15rem', color: 'var(--gold-primary)' }}>{match.roundNumber}</strong>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>الجولة</span>
+            <strong style={{ fontSize: '1.1rem', color: 'var(--platinum-silver)' }}>{match.roundNumber}</strong>
           </div>
 
-          <div style={{ height: 26, width: 1, background: 'rgba(255, 255, 255, 0.12)' }} />
+          <div style={{ height: 24, width: 1, background: 'rgba(255, 255, 255, 0.12)' }} />
 
           <div>
-            <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>
               {match.mode === GameMode.Quadruple ? 'النتيجة (فريقك - الخصم)' : 'النتيجة (101 بنط)'}
             </span>
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
               <span
                 style={{
-                  fontSize: '1.25rem',
+                  fontSize: '1.2rem',
                   fontWeight: 900,
-                  color: myPlayer?.teamIndex === 2 ? '#60a5fa' : 'var(--gold-primary)'
+                  color: myPlayer?.teamIndex === 2 ? '#60a5fa' : 'var(--platinum-light)'
                 }}
               >
                 {match.team1Score}
@@ -184,9 +174,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               <span style={{ color: '#64748b', fontWeight: 800 }}>:</span>
               <span
                 style={{
-                  fontSize: '1.25rem',
+                  fontSize: '1.2rem',
                   fontWeight: 900,
-                  color: myPlayer?.teamIndex === 2 ? 'var(--gold-primary)' : '#60a5fa'
+                  color: myPlayer?.teamIndex === 2 ? 'var(--platinum-light)' : '#60a5fa'
                 }}
               >
                 {match.team2Score}
@@ -196,17 +186,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         </div>
 
         {/* Turn Status Pill & Timer */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
           <div
             style={{
-              padding: '0.25rem 0.85rem',
+              padding: '0.22rem 0.8rem',
               borderRadius: '9999px',
-              fontSize: '0.85rem',
+              fontSize: '0.82rem',
               fontWeight: 800,
-              background: isMyTurn ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#1e293b',
+              background: isMyTurn ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#2a221b',
               color: isMyTurn ? '#000' : '#f8fafc',
-              boxShadow: isMyTurn ? '0 0 12px rgba(16, 185, 129, 0.55)' : 'none',
-              animation: isMyTurn ? 'pulseGlow 2s infinite ease-in-out' : 'none'
+              border: isMyTurn ? '1px solid #34d399' : '1px solid rgba(255, 255, 255, 0.1)',
+              boxShadow: isMyTurn ? '0 0 12px rgba(16, 185, 129, 0.55)' : 'none'
             }}
           >
             {isMyTurn ? STRINGS.yourTurn : `دور: ${currentTurnPlayer?.displayName || 'اللاعب'}`}
@@ -216,23 +206,23 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.3rem',
-              padding: '0.2rem 0.6rem',
+              gap: '0.25rem',
+              padding: '0.2rem 0.55rem',
               borderRadius: '9999px',
-              background: secondsRemaining <= 5 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-              border: secondsRemaining <= 5 ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.1)',
+              background: secondsRemaining <= 5 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+              border: secondsRemaining <= 5 ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.12)',
               color: secondsRemaining <= 5 ? '#ef4444' : secondsRemaining <= 10 ? '#f59e0b' : '#f8fafc',
               fontWeight: 800,
-              fontSize: '0.85rem'
+              fontSize: '0.82rem'
             }}
           >
-            <Clock size={15} />
+            <Clock size={14} />
             <span>{secondsRemaining}ث</span>
           </div>
         </div>
 
-        {/* Header Action Buttons (Skip / Request Teammate / Center Board) */}
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        {/* Header Action Controls */}
+        <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>
           {isMyTurn && canSkip && (
             <button
               className="btn btn-danger"
@@ -260,7 +250,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               className="btn btn-primary"
               onClick={onOpenSoundboard}
               style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', gap: '0.3rem' }}
-              title="أصوات وريأكشنات القهوة"
+              title="ريأكشنات وأصوات القهوة"
             >
               <Volume2 size={14} />
               <span>أصوات القهوة 🎙️</span>
@@ -271,30 +261,22 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             <button
               className="btn btn-secondary"
               onClick={onOpenSoundSettings}
-              style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem' }}
+              style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem' }}
               title="إعدادات الصوت"
             >
               <Sliders size={15} />
             </button>
           )}
 
-          <button
-            className="btn btn-secondary"
-            onClick={centerBoard}
-            style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem' }}
-            title="توسيط التربيزة"
-          >
-            <Focus size={15} />
-          </button>
-
           {onExitGame && (
             <button
               className="btn btn-secondary"
-              onClick={onExitGame}
-              style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', color: '#f87171' }}
+              onClick={() => setIsExitModalOpen(true)}
+              style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}
               title="مغادرة الماتش"
             >
               <LogOut size={15} />
+              <span style={{ marginRight: '0.25rem' }}>خروج</span>
             </button>
           )}
         </div>
@@ -319,7 +301,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               gridColumn: '1 / -1',
               display: 'flex',
               justifyContent: 'center',
-              paddingTop: '0.4rem',
+              paddingTop: '0.3rem',
               zIndex: 10
             }}
           >
@@ -360,26 +342,27 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           </div>
         )}
 
-        {/* Center Felt Board with Central Domino Chain */}
+        {/* Center Felt Board with Dynamic Multi-Row Snake Layout */}
         <div
-          ref={scrollRef}
           className="domino-board-felt"
           style={{
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: match.boardChain.length > 4 ? 'flex-start' : 'center',
-            overflowX: 'auto',
-            overflowY: 'hidden',
-            padding: '1.5rem 2rem',
+            justifyContent: 'center',
+            padding: '1rem 1.5rem',
             position: 'relative',
-            cursor: 'grab'
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            width: '100%',
+            height: '100%'
           }}
         >
           {match.boardChain.length === 0 ? (
             <div
               style={{
                 textAlign: 'center',
-                color: 'rgba(255, 255, 255, 0.35)',
+                color: 'rgba(255, 255, 255, 0.45)',
                 userSelect: 'none',
                 padding: '2rem'
               }}
@@ -391,67 +374,103 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 تربيزة الدومينو جاهزة! {isMyTurn ? 'العب أول ورقة للبدء' : 'في انتظار أول ورقة...'}
               </p>
               {match.mode === GameMode.Quadruple && (
-                <p style={{ fontSize: '0.85rem', color: 'var(--gold-primary)', marginTop: '0.3rem' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--platinum-silver)', marginTop: '0.3rem' }}>
                   الجولة الأولى تبدأ بالدوش (6-6)
                 </p>
               )}
             </div>
           ) : (
             <div
+              className="snake-board-container"
               style={{
                 display: 'flex',
+                flexDirection: 'column',
+                gap: '0.65rem',
                 alignItems: 'center',
-                gap: '0.35rem',
-                flexShrink: 0,
-                padding: '1rem',
+                justifyContent: 'center',
+                maxWidth: '100%',
                 margin: 'auto'
               }}
             >
-              {/* Left End Drop Zone / Indicator */}
-              {match.openLeft !== null && (
-                <div
-                  className={`board-end-drop-zone left-zone ${dragOverEnd === BoardEnd.Left ? 'active-drop' : ''}`}
-                  onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Left)}
-                  onDrop={(e) => handleBoardDrop(e, BoardEnd.Left)}
-                  title={`طرف مفتوح: ${match.openLeft}`}
-                >
-                  <span className="end-badge">طرف {match.openLeft}</span>
-                </div>
-              )}
+              {chainRows.map((rowTiles, rowIdx) => {
+                const isOddRow = rowIdx % 2 === 1; // Odd rows run in reverse snake direction
+                const isFirstRow = rowIdx === 0;
+                const isLastRow = rowIdx === chainRows.length - 1;
 
-              {/* Placed Domino Tiles Chain */}
-              {match.boardChain.map((tile: BoardPlacedTile, idx: number) => {
-                const isDouble = tile.leftPip === tile.rightPip;
                 return (
                   <div
-                    key={`${tile.tileId}-${idx}`}
-                    className="chain-tile-container"
+                    key={`row-${rowIdx}`}
                     style={{
-                      transform: isDouble ? 'scale(1.05)' : 'none',
-                      filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.7))',
-                      transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexDirection: isOddRow ? 'row-reverse' : 'row',
+                      gap: '0.35rem',
+                      position: 'relative'
                     }}
                   >
-                    <DominoTileView
-                      tile={{ id: tile.tileId, end1: tile.leftPip, end2: tile.rightPip }}
-                      orientation={isDouble ? 'vertical' : 'horizontal'}
-                      size="normal"
-                    />
+                    {/* Open Left End Drop Zone at start of Row 0 */}
+                    {isFirstRow && match.openLeft !== null && (
+                      <div
+                        className={`board-end-drop-zone left-zone ${dragOverEnd === BoardEnd.Left ? 'active-drop' : ''}`}
+                        onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Left)}
+                        onDrop={(e) => handleBoardDrop(e, BoardEnd.Left)}
+                        title={`طرف مفتوح: ${match.openLeft}`}
+                      >
+                        <span className="end-badge">طرف {match.openLeft}</span>
+                      </div>
+                    )}
+
+                    {/* Tiles in this Snake Row */}
+                    {rowTiles.map((tile, tileIdx) => {
+                      const isDouble = tile.leftPip === tile.rightPip;
+                      return (
+                        <div
+                          key={`${tile.tileId}-${rowIdx}-${tileIdx}`}
+                          className="chain-tile-container"
+                          style={{
+                            transform: isDouble ? 'scale(1.05)' : 'none',
+                            filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.7))',
+                            transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                          }}
+                        >
+                          <DominoTileView
+                            tile={{ id: tile.tileId, end1: tile.leftPip, end2: tile.rightPip }}
+                            orientation={isDouble ? 'vertical' : 'horizontal'}
+                            size={match.boardChain.length > 14 ? 'small' : 'normal'}
+                          />
+                        </div>
+                      );
+                    })}
+
+                    {/* Turn Connector to next row if not last row */}
+                    {!isLastRow && (
+                      <div
+                        style={{
+                          color: 'rgba(229, 231, 235, 0.4)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '0 0.2rem'
+                        }}
+                        title="التفاف السلسلة"
+                      >
+                        {isOddRow ? <CornerDownLeft size={20} /> : <CornerDownRight size={20} />}
+                      </div>
+                    )}
+
+                    {/* Open Right End Drop Zone at end of Last Row */}
+                    {isLastRow && match.openRight !== null && (
+                      <div
+                        className={`board-end-drop-zone right-zone ${dragOverEnd === BoardEnd.Right ? 'active-drop' : ''}`}
+                        onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Right)}
+                        onDrop={(e) => handleBoardDrop(e, BoardEnd.Right)}
+                        title={`طرف مفتوح: ${match.openRight}`}
+                      >
+                        <span className="end-badge">طرف {match.openRight}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
-
-              {/* Right End Drop Zone / Indicator */}
-              {match.openRight !== null && (
-                <div
-                  className={`board-end-drop-zone right-zone ${dragOverEnd === BoardEnd.Right ? 'active-drop' : ''}`}
-                  onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Right)}
-                  onDrop={(e) => handleBoardDrop(e, BoardEnd.Right)}
-                  title={`طرف مفتوح: ${match.openRight}`}
-                >
-                  <span className="end-badge">طرف {match.openRight}</span>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -493,6 +512,19 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Leave Game Confirmation Modal */}
+      <ExitConfirmationModal
+        isOpen={isExitModalOpen}
+        onClose={() => setIsExitModalOpen(false)}
+        onConfirm={() => {
+          setIsExitModalOpen(false);
+          onExitGame?.();
+        }}
+        mode={match.mode}
+        isMatchActive={match.status === MatchStatus.Active}
+        isLobby={false}
+      />
     </div>
   );
 };

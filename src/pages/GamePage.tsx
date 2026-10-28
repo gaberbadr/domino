@@ -65,6 +65,13 @@ export const GamePage: React.FC<GamePageProps> = ({
   // In-flight request guards
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   const [isSubmittingMove, setIsSubmittingMove] = useState<boolean>(false);
+  const [rejectedTileId, setRejectedTileId] = useState<number | null>(null);
+
+  const triggerTileRejection = (tileId: number, message = 'الورقة دي مينفعش تلعبها هنا') => {
+    setRejectedTileId(tileId);
+    showToast(message, 'error');
+    setTimeout(() => setRejectedTileId(null), 700);
+  };
 
   // Notification Toast
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'info' | 'success' | 'error' } | null>(null);
@@ -112,7 +119,12 @@ export const GamePage: React.FC<GamePageProps> = ({
     conn.on('BoardUpdated', (update: BoardUpdateDto) => {
       soundService.playGameplay('play', `play_${update.placedTile.tileId}_${update.placedTile.orderIndex}`);
       setMatch((prev) => {
-        const chain = [...prev.boardChain, update.placedTile];
+        const chain = update.boardChain && update.boardChain.length > 0
+          ? update.boardChain
+          : (update.placedTile.placedAt === BoardEnd.Left
+              ? [update.placedTile, ...prev.boardChain]
+              : [...prev.boardChain, update.placedTile]);
+
         const players = prev.players.map((p) =>
           p.userId === update.playedByUserId
             ? { ...p, tileCount: update.playerRemainingTileCount }
@@ -211,7 +223,7 @@ export const GamePage: React.FC<GamePageProps> = ({
       const p = match.players.find((x) => x.userId === userId);
       const name = p?.displayName || 'لاعب';
       if (!isConnected) {
-        showToast(`${name} فصل من اللعبة.. معاه دقيقتين يرجع فيهم`, 'error');
+        showToast(`${name} فصل من اللعبة.. معاه 60 ثانية يرجع فيها`, 'error');
       } else {
         showToast(`${name} رجع للعبة تاني!`, 'success');
       }
@@ -292,7 +304,10 @@ export const GamePage: React.FC<GamePageProps> = ({
     if (match.currentTurnUserId !== currentUser.userId || isSubmittingMove) return;
 
     const legalMove = privateState.legalMoves.find((m) => m.tile.id === tile.id);
-    if (!legalMove) return;
+    if (!legalMove) {
+      triggerTileRejection(tile.id, 'الورقة دي مينفعش تلعبها حالياً');
+      return;
+    }
 
     if (legalMove.requiresChoice && match.openLeft !== null && match.openRight !== null) {
       setChoiceTile(tile);
@@ -307,11 +322,14 @@ export const GamePage: React.FC<GamePageProps> = ({
     if (match.currentTurnUserId !== currentUser.userId || isSubmittingMove) return;
 
     const legalMove = privateState.legalMoves.find((m) => m.tile.id === tileId);
-    if (!legalMove) return;
+    if (!legalMove) {
+      triggerTileRejection(tileId, 'الورقة دي مينفعش تلعبها');
+      return;
+    }
 
     const canPlaceOnTarget = end === BoardEnd.Left ? legalMove.canPlaceLeft : legalMove.canPlaceRight;
     if (!canPlaceOnTarget) {
-      showToast('الورقة لا تناسب هذا الطرف من السلسلة!', 'error');
+      triggerTileRejection(tileId, 'الورقة لا تناسب هذا الطرف من السلسلة!');
       return;
     }
 
@@ -366,7 +384,7 @@ export const GamePage: React.FC<GamePageProps> = ({
         flexDirection: 'column',
         height: '100dvh',
         position: 'relative',
-        background: '#04070e',
+        background: 'var(--bg-main)',
         overflow: 'hidden'
       }}
     >
@@ -446,6 +464,7 @@ export const GamePage: React.FC<GamePageProps> = ({
         hand={privateState.hand}
         legalMoves={privateState.legalMoves}
         isMyTurn={match.currentTurnUserId === currentUser.userId}
+        rejectedTileId={rejectedTileId}
         onTileClick={handleTileClick}
       />
 

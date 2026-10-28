@@ -172,9 +172,10 @@ export const api = {
   },
 
   admin: {
-    getPlayers: (search?: string, page = 1, pageSize = 20) => {
+    getPlayers: (search?: string, status?: string, page = 1, pageSize = 20) => {
       const query = new URLSearchParams();
       if (search) query.set('search', search);
+      if (status && status !== 'all') query.set('status', status);
       query.set('page', page.toString());
       query.set('pageSize', pageSize.toString());
       return request<AdminPlayerListResponse>(`/Admin/players?${query.toString()}`);

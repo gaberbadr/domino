@@ -111,6 +111,12 @@ export interface BoardUpdateDto {
   newOpenRight?: number;
   playedByUserId: string;
   playerRemainingTileCount: number;
+  boardChain?: BoardPlacedTile[];
+}
+
+export interface VoicePeerDto {
+  userId: string;
+  displayName: string;
 }
 
 export interface InvalidDealNotificationDto {
