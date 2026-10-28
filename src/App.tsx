@@ -52,7 +52,8 @@ export const App: React.FC = () => {
   // Check URL on initial load for OAuth callback
   useEffect(() => {
     const search = window.location.search;
-    if (search.includes('accessToken=') || search.includes('error=')) {
+    const isCallback = window.location.pathname === '/callback' || search.includes('accessToken=') || search.includes('error=');
+    if (isCallback) {
       setCurrentPage('callback');
       return;
     }

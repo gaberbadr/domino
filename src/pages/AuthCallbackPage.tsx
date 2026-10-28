@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { tokenStorage } from '../services/api';
 import { RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
 
@@ -13,8 +13,12 @@ export const AuthCallbackPage: React.FC<AuthCallbackPageProps> = ({
 }) => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const hasProcessedRef = useRef(false);
 
   useEffect(() => {
+    if (hasProcessedRef.current) return;
+    hasProcessedRef.current = true;
+
     const params = new URLSearchParams(window.location.search);
     const error = params.get('error');
     const accessToken = params.get('accessToken');
@@ -29,6 +33,14 @@ export const AuthCallbackPage: React.FC<AuthCallbackPageProps> = ({
     }
 
     if (!accessToken || !refreshToken) {
+      if (tokenStorage.getAccessToken()) {
+        setStatus('success');
+        window.history.replaceState({}, document.title, '/');
+        setTimeout(() => {
+          onSuccess();
+        }, 500);
+        return;
+      }
       setStatus('error');
       setErrorMessage('بيانات تسجيل الدخول غير مكتملة، برجاء المحاولة مرة أخرى');
       return;
@@ -37,8 +49,8 @@ export const AuthCallbackPage: React.FC<AuthCallbackPageProps> = ({
     tokenStorage.setTokens(accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt);
     setStatus('success');
 
-    // Clean URL
-    window.history.replaceState({}, document.title, window.location.pathname);
+    // Clean URL back to root
+    window.history.replaceState({}, document.title, '/');
 
     setTimeout(() => {
       onSuccess();
@@ -89,7 +101,13 @@ export const AuthCallbackPage: React.FC<AuthCallbackPageProps> = ({
             <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
               {errorMessage}
             </p>
-            <button className="btn btn-secondary" onClick={onError}>
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                window.history.replaceState({}, document.title, '/');
+                onError();
+              }}
+            >
               العودة للرئيسية
             </button>
           </div>
