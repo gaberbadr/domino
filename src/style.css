@@ -392,19 +392,24 @@ body {
 /* Playable, Selected & Shake States */
 .domino-tile.playable {
   cursor: pointer;
-  box-shadow: 0 0 0 2px #10b981, 0 0 16px rgba(16, 185, 129, 0.85), 0 6px 14px rgba(0, 0, 0, 0.5);
-  animation: tileGlow 2.5s infinite ease-in-out;
+  outline: 2px solid #10b981;
+  outline-offset: 1px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4), 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .domino-tile.playable:hover {
-  transform: translateY(-8px) scale(1.06);
-  box-shadow: 0 0 0 2.5px #34d399, 0 0 24px rgba(16, 185, 129, 1), 0 12px 20px rgba(0, 0, 0, 0.6);
+  transform: translateY(-6px);
+  outline: 2.5px solid #34d399;
+  outline-offset: 2px;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.55), 0 8px 18px rgba(0, 0, 0, 0.5);
   z-index: 25;
 }
 
 .domino-tile.selected {
-  box-shadow: 0 0 0 2.5px var(--platinum-silver), 0 0 20px var(--platinum-glow), 0 8px 16px rgba(0, 0, 0, 0.6);
-  transform: translateY(-10px) scale(1.08);
+  outline: 2.5px solid var(--platinum-silver);
+  outline-offset: 2px;
+  box-shadow: 0 0 16px var(--platinum-glow), 0 8px 16px rgba(0, 0, 0, 0.6);
+  transform: translateY(-8px);
 }
 
 .domino-tile.disabled {
@@ -425,7 +430,8 @@ body {
 }
 
 .domino-tile.tile-rejected-shake {
-  box-shadow: 0 0 0 2.5px #ef4444, 0 0 18px rgba(239, 68, 68, 0.95), 0 6px 14px rgba(0, 0, 0, 0.6) !important;
+  outline: 2.5px solid #ef4444 !important;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.85), 0 6px 14px rgba(0, 0, 0, 0.6) !important;
   animation: errorShake 0.6s ease-in-out !important;
 }
 
@@ -435,7 +441,7 @@ body {
 }
 
 @keyframes tilePlacementPop {
-  0% { transform: scale(1.18); box-shadow: 0 0 0 2.5px #fbbf24, 0 0 22px rgba(251, 191, 36, 0.9); }
+  0% { transform: scale(1.15); box-shadow: 0 0 0 2.5px #fbbf24, 0 0 20px rgba(251, 191, 36, 0.9); }
   100% { transform: scale(1); }
 }
 
@@ -471,6 +477,20 @@ body {
   background: rgba(16, 185, 129, 0.35) !important;
   box-shadow: 0 0 22px rgba(16, 185, 129, 0.9) !important;
   color: #fff !important;
+}
+
+.board-end-drop-zone.choice-active {
+  transform: scale(1.08);
+  border: 2.5px solid #10b981 !important;
+  background: rgba(16, 185, 129, 0.25) !important;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.8) !important;
+  color: #fff !important;
+  animation: pulseChoice 1.8s infinite ease-in-out;
+}
+
+@keyframes pulseChoice {
+  0%, 100% { transform: scale(1.05); }
+  50% { transform: scale(1.15); box-shadow: 0 0 28px rgba(16, 185, 129, 1); }
 }
 
 /* Concealed Domino Back */

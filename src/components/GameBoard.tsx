@@ -14,14 +14,57 @@ interface GameBoardProps {
   canDraw: boolean;
   canSkip: boolean;
   isDrawing?: boolean;
+  isChoiceActive?: boolean;
   onDraw: () => void;
   onSkip: () => void;
   onRequestTeammateStart?: () => void;
   onDropTileOnEnd?: (tileId: number, end: BoardEnd) => void;
+  onSelectEnd?: (end: BoardEnd) => void;
   onExitGame?: () => void;
   onOpenSoundboard?: () => void;
   onOpenSoundSettings?: () => void;
 }
+
+export const TurnTimerPill: React.FC<{ turnDeadlineUtc?: string | null }> = React.memo(({ turnDeadlineUtc }) => {
+  const [secondsRemaining, setSecondsRemaining] = useState<number>(30);
+
+  useEffect(() => {
+    if (!turnDeadlineUtc) return;
+    const deadline = new Date(turnDeadlineUtc).getTime();
+    const updateTimer = () => {
+      const now = Date.now();
+      const diff = Math.max(0, Math.ceil((deadline - now) / 1000));
+      setSecondsRemaining(diff);
+    };
+    updateTimer();
+    const interval = setInterval(updateTimer, 500);
+    return () => clearInterval(interval);
+  }, [turnDeadlineUtc]);
+
+  const isUrgent = secondsRemaining <= 5;
+  const isWarning = secondsRemaining <= 10;
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.25rem',
+        padding: '0.2rem 0.55rem',
+        borderRadius: '9999px',
+        background: isUrgent ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+        border: isUrgent ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.12)',
+        color: isUrgent ? '#ef4444' : isWarning ? '#f59e0b' : '#f8fafc',
+        fontWeight: 800,
+        fontSize: '0.82rem',
+        transition: 'background 0.3s, color 0.3s'
+      }}
+    >
+      <Clock size={14} />
+      <span>{secondsRemaining}ث</span>
+    </div>
+  );
+});
 
 export const GameBoard: React.FC<GameBoardProps> = ({
   match,
@@ -29,15 +72,16 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   canDraw,
   canSkip,
   isDrawing = false,
+  isChoiceActive = false,
   onDraw,
   onSkip,
   onRequestTeammateStart,
   onDropTileOnEnd,
+  onSelectEnd,
   onExitGame,
   onOpenSoundboard,
   onOpenSoundSettings
 }) => {
-  const [secondsRemaining, setSecondsRemaining] = useState<number>(30);
   const [autoSkipSeconds, setAutoSkipSeconds] = useState<number>(3);
   const [dragOverEnd, setDragOverEnd] = useState<BoardEnd | null>(null);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
@@ -48,14 +92,19 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     height: 500
   });
 
-  // Track board felt container size for dynamic responsive layout
+  // Track board felt container size for dynamic responsive layout with threshold guard
   useEffect(() => {
     if (!boardFeltRef.current) return;
     const updateDims = () => {
       if (boardFeltRef.current) {
         const { clientWidth, clientHeight } = boardFeltRef.current;
         if (clientWidth > 0 && clientHeight > 0) {
-          setBoardDimensions({ width: clientWidth, height: clientHeight });
+          setBoardDimensions((prev) => {
+            if (Math.abs(prev.width - clientWidth) < 8 && Math.abs(prev.height - clientHeight) < 8) {
+              return prev;
+            }
+            return { width: clientWidth, height: clientHeight };
+          });
         }
       }
     };
@@ -93,21 +142,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     ? Math.max(...match.boardChain.map((t) => t.orderIndex))
     : -1;
 
-  // Turn timer countdown
-  useEffect(() => {
-    if (!match.turnDeadlineUtc) return;
 
-    const deadline = new Date(match.turnDeadlineUtc).getTime();
-    const updateTimer = () => {
-      const now = Date.now();
-      const diff = Math.max(0, Math.ceil((deadline - now) / 1000));
-      setSecondsRemaining(diff);
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 500);
-    return () => clearInterval(interval);
-  }, [match.turnDeadlineUtc, match.currentTurnUserId]);
 
   // Auto-skip countdown if canSkip is active
   useEffect(() => {
@@ -237,23 +272,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             {isMyTurn ? STRINGS.yourTurn : `دور: ${currentTurnPlayer?.displayName || 'اللاعب'}`}
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-              padding: '0.2rem 0.55rem',
-              borderRadius: '9999px',
-              background: secondsRemaining <= 5 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.06)',
-              border: secondsRemaining <= 5 ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.12)',
-              color: secondsRemaining <= 5 ? '#ef4444' : secondsRemaining <= 10 ? '#f59e0b' : '#f8fafc',
-              fontWeight: 800,
-              fontSize: '0.82rem'
-            }}
-          >
-            <Clock size={14} />
-            <span>{secondsRemaining}ث</span>
-          </div>
+          <TurnTimerPill turnDeadlineUtc={match.turnDeadlineUtc} />
         </div>
 
         {/* Header Action Controls */}
@@ -407,7 +426,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               <p style={{ fontSize: '1.15rem', fontWeight: 800 }}>
                 تربيزة الدومينو جاهزة! {isMyTurn ? 'العب أول ورقة للبدء' : 'في انتظار أول ورقة...'}
               </p>
-              {match.mode === GameMode.Quadruple && (
+              {match.roundNumber === 1 && (
                 <p style={{ fontSize: '0.85rem', color: 'var(--platinum-silver)', marginTop: '0.3rem' }}>
                   الجولة الأولى تبدأ بالدوش (6-6)
                 </p>
@@ -429,7 +448,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               {/* Left End Drop Zone */}
               {layoutResult.leftDropZone && (
                 <div
-                  className={`board-end-drop-zone left-zone ${dragOverEnd === BoardEnd.Left ? 'active-drop' : ''}`}
+                  className={`board-end-drop-zone left-zone ${dragOverEnd === BoardEnd.Left ? 'active-drop' : ''} ${
+                    isChoiceActive ? 'choice-active' : ''
+                  }`}
+                  onClick={() => {
+                    if (isChoiceActive && onSelectEnd) onSelectEnd(BoardEnd.Left);
+                  }}
                   onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Left)}
                   onDrop={(e) => handleBoardDrop(e, BoardEnd.Left)}
                   style={{
@@ -439,9 +463,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                     width: `${layoutResult.leftDropZone.width}px`,
                     height: `${layoutResult.leftDropZone.height}px`
                   }}
-                  title={`طرف مفتوح: ${layoutResult.leftDropZone.openPip}`}
+                  title={`طرف مفتوح: ${layoutResult.leftDropZone.openPip}${isChoiceActive ? ' - اضغط هنا للعب شمال' : ''}`}
                 >
-                  <span className="end-badge">طرف {layoutResult.leftDropZone.openPip}</span>
+                  <span className="end-badge">
+                    طرف {layoutResult.leftDropZone.openPip} {isChoiceActive ? '👈 شمال' : ''}
+                  </span>
                 </div>
               )}
 
@@ -479,7 +505,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               {/* Right End Drop Zone */}
               {layoutResult.rightDropZone && (
                 <div
-                  className={`board-end-drop-zone right-zone ${dragOverEnd === BoardEnd.Right ? 'active-drop' : ''}`}
+                  className={`board-end-drop-zone right-zone ${dragOverEnd === BoardEnd.Right ? 'active-drop' : ''} ${
+                    isChoiceActive ? 'choice-active' : ''
+                  }`}
+                  onClick={() => {
+                    if (isChoiceActive && onSelectEnd) onSelectEnd(BoardEnd.Right);
+                  }}
                   onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Right)}
                   onDrop={(e) => handleBoardDrop(e, BoardEnd.Right)}
                   style={{
@@ -489,9 +520,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                     width: `${layoutResult.rightDropZone.width}px`,
                     height: `${layoutResult.rightDropZone.height}px`
                   }}
-                  title={`طرف مفتوح: ${layoutResult.rightDropZone.openPip}`}
+                  title={`طرف مفتوح: ${layoutResult.rightDropZone.openPip}${isChoiceActive ? ' - اضغط هنا للعب يمين' : ''}`}
                 >
-                  <span className="end-badge">طرف {layoutResult.rightDropZone.openPip}</span>
+                  <span className="end-badge">
+                    طرف {layoutResult.rightDropZone.openPip} {isChoiceActive ? '👉 يمين' : ''}
+                  </span>
                 </div>
               )}
             </div>

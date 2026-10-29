@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { api } from '../services/api';
 import { signalRService } from '../services/signalr';
 import {
@@ -81,6 +81,56 @@ export const GamePage: React.FC<GamePageProps> = ({
     setTimeout(() => setToastMessage(null), 4000);
   }, []);
 
+  // Stable refs to prevent re-attaching SignalR listeners on every state update
+  const matchRef = useRef(match);
+  matchRef.current = match;
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
+
+  // Authoritative dynamic legal moves calculation
+  const isMyTurn = match.currentTurnUserId === currentUser.userId;
+  const isFirstMoveOfMatch = match.roundNumber === 1 && (match.openLeft === null && match.openRight === null);
+
+  const activeLegalMoves = useMemo<LegalMoveDto[]>(() => {
+    if (!isMyTurn) return [];
+
+    // Empty board
+    if (match.openLeft === null && match.openRight === null) {
+      if (isFirstMoveOfMatch) {
+        const d6 = privateState.hand.find((t) => t.end1 === 6 && t.end2 === 6);
+        if (d6) {
+          return [{ tile: d6, canPlaceLeft: true, canPlaceRight: true, requiresChoice: false }];
+        }
+      }
+      return privateState.hand.map((t) => ({
+        tile: t,
+        canPlaceLeft: true,
+        canPlaceRight: true,
+        requiresChoice: false
+      }));
+    }
+
+    const l = match.openLeft;
+    const r = match.openRight;
+
+    const moves: LegalMoveDto[] = [];
+    for (const t of privateState.hand) {
+      const canL = l !== null && (t.end1 === l || t.end2 === l);
+      const canR = r !== null && (t.end1 === r || t.end2 === r);
+      if (canL || canR) {
+        moves.push({
+          tile: t,
+          canPlaceLeft: canL,
+          canPlaceRight: canR,
+          requiresChoice: canL && canR && (l !== r)
+        });
+      }
+    }
+    return moves;
+  }, [isMyTurn, isFirstMoveOfMatch, match.openLeft, match.openRight, privateState.hand]);
+
   // Landscape Orientation Lock & Detection
   useEffect(() => {
     const checkOrientation = () => {
@@ -118,8 +168,9 @@ export const GamePage: React.FC<GamePageProps> = ({
     // 1. Board Updated
     conn.on('BoardUpdated', (update: BoardUpdateDto) => {
       soundService.playGameplay('play', `play_${update.placedTile.tileId}_${update.placedTile.orderIndex}`);
+      setChoiceTile(null); // Clear any pending choice modal/state
       setMatch((prev) => {
-        const chain = update.boardChain && update.boardChain.length > 0
+        const chain = update.boardChain
           ? update.boardChain
           : (update.placedTile.placedAt === BoardEnd.Left
               ? [update.placedTile, ...prev.boardChain]
@@ -133,11 +184,20 @@ export const GamePage: React.FC<GamePageProps> = ({
         return {
           ...prev,
           boardChain: chain,
-          openLeft: update.newOpenLeft ?? prev.openLeft,
-          openRight: update.newOpenRight ?? prev.openRight,
+          openLeft: update.newOpenLeft ?? (chain.length > 0 ? prev.openLeft : undefined),
+          openRight: update.newOpenRight ?? (chain.length > 0 ? prev.openRight : undefined),
           players
         };
       });
+
+      // Synchronize player's own hand if they were the player
+      if (update.playedByUserId === currentUserRef.current.userId) {
+        setPrivateState((prev) => ({
+          ...prev,
+          hand: prev.hand.filter((t) => t.id !== update.placedTile.tileId)
+        }));
+      }
+
       setIsSubmittingMove(false);
     });
 
@@ -154,6 +214,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
     // 3. Turn Changed
     conn.on('TurnChanged', (currentTurnUserId: string, _seconds: number, turnDeadlineUtc: string) => {
+      setChoiceTile(null);
       setMatch((prev) => ({
         ...prev,
         currentTurnUserId,
@@ -163,6 +224,11 @@ export const GamePage: React.FC<GamePageProps> = ({
 
     // 4. Tile Drawn
     conn.on('TileDrawn', (drawerUserId: string, remainingBankCount: number, drawnTile: DominoTile | null) => {
+      // Filter out duplicate broadcasted null event for the drawer
+      if (drawerUserId === currentUserRef.current.userId && drawnTile === null) {
+        return;
+      }
+
       setIsDrawing(false);
       soundService.playGameplay('take', `take_${drawerUserId}_${remainingBankCount}`);
       setMatch((prev) => {
@@ -176,22 +242,22 @@ export const GamePage: React.FC<GamePageProps> = ({
         };
       });
 
-      if (drawerUserId === currentUser.userId && drawnTile) {
-        showToast(`سحبت ورقة: [${drawnTile.end1}|${drawnTile.end2}]`, 'info');
+      if (drawerUserId === currentUserRef.current.userId && drawnTile) {
+        showToastRef.current(`سحبت ورقة: [${drawnTile.end1}|${drawnTile.end2}]`, 'info');
       } else {
-        const drawer = match.players.find((p) => p.userId === drawerUserId);
-        showToast(`${drawer?.displayName || 'الخصم'} سحب ورقة من السحبة`, 'info');
+        const drawer = matchRef.current.players.find((p) => p.userId === drawerUserId);
+        showToastRef.current(`${drawer?.displayName || 'الخصم'} سحب ورقة من السحبة`, 'info');
       }
     });
 
     // 5. Turn Skipped / Auto Action
     conn.on('TurnSkipped', (_userId: string, message: string) => {
       soundService.playGameplay('skip');
-      showToast(message, 'info');
+      showToastRef.current(message, 'info');
     });
 
     conn.on('AutoActionExecuted', (_userId: string, actionDescription: string) => {
-      showToast(actionDescription, 'info');
+      showToastRef.current(actionDescription, 'info');
     });
 
     // 6. Invalid Deal Notification
@@ -204,28 +270,33 @@ export const GamePage: React.FC<GamePageProps> = ({
       if (result.outcomeType === RoundOutcomeType.Draw || result.outcomeType === RoundOutcomeType.BlockedWin) {
         soundService.playGameplay('drawOrClose');
       }
+      setChoiceTile(null);
       setRoundEndResult(result);
       setMatch((prev) => ({
         ...prev,
         team1Score: result.team1ScoreAfter,
         team2Score: result.team2ScoreAfter,
-        roundNumber: result.roundNumber
+        roundNumber: result.roundNumber,
+        boardChain: [],
+        openLeft: undefined,
+        openRight: undefined
       }));
     });
 
     // 8. Match Ended
     conn.on('MatchEnded', (result: MatchEndResultDto) => {
+      setChoiceTile(null);
       setMatchEndResult(result);
     });
 
     // 9. Player Connection Status Changed
     conn.on('PlayerConnectionChanged', (userId: string, isConnected: boolean, _deadline: string | null) => {
-      const p = match.players.find((x) => x.userId === userId);
+      const p = matchRef.current.players.find((x) => x.userId === userId);
       const name = p?.displayName || 'لاعب';
       if (!isConnected) {
-        showToast(`${name} فصل من اللعبة.. معاه 60 ثانية يرجع فيها`, 'error');
+        showToastRef.current(`${name} فصل من اللعبة.. معاه 60 ثانية يرجع فيها`, 'error');
       } else {
-        showToast(`${name} رجع للعبة تاني!`, 'success');
+        showToastRef.current(`${name} رجع للعبة تاني!`, 'success');
       }
 
       setMatch((prev) => ({
@@ -240,18 +311,18 @@ export const GamePage: React.FC<GamePageProps> = ({
     });
 
     conn.on('TeammateStartDecision', (approved: boolean, starterUserId: string) => {
-      const starter = match.players.find((p) => p.userId === starterUserId);
+      const starter = matchRef.current.players.find((p) => p.userId === starterUserId);
       if (approved) {
-        showToast(`تمت الموافقة! البادئ في الجولة هو: ${starter?.displayName}`, 'success');
+        showToastRef.current(`تمت الموافقة! البادئ في الجولة هو: ${starter?.displayName}`, 'success');
       } else {
-        showToast('تم رفض طلب البداية بدلاً', 'info');
+        showToastRef.current('تم رفض طلب البداية بدلاً', 'info');
       }
     });
 
     // 11. Soundboard Clip Broadcast
     conn.on('SoundboardClipPlayed', (_senderUserId: string, senderDisplayName: string, soundKey: string) => {
       soundService.playReplay(soundKey);
-      showToast(`📢 ${senderDisplayName} شغّل: ${soundKey}`, 'info');
+      showToastRef.current(`📢 ${senderDisplayName} شغّل: ${soundKey}`, 'info');
     });
 
     return () => {
@@ -269,7 +340,7 @@ export const GamePage: React.FC<GamePageProps> = ({
       conn.off('TeammateStartDecision');
       conn.off('SoundboardClipPlayed');
     };
-  }, [match.players, currentUser.userId, showToast]);
+  }, []);
 
   // Audio unlock and shuffle on deal
   useEffect(() => {
@@ -299,19 +370,21 @@ export const GamePage: React.FC<GamePageProps> = ({
     }
   };
 
-  // Handle Tile Click in Hand
+  // Tap-to-play with endpoint selection
   const handleTileClick = async (tile: DominoTile) => {
-    if (match.currentTurnUserId !== currentUser.userId || isSubmittingMove) return;
+    if (!isMyTurn || isSubmittingMove) return;
 
-    const legalMove = privateState.legalMoves.find((m) => m.tile.id === tile.id);
+    const legalMove = activeLegalMoves.find((m) => m.tile.id === tile.id);
     if (!legalMove) {
       triggerTileRejection(tile.id, 'الورقة دي مينفعش تلعبها حالياً');
       return;
     }
 
+    // Dual-endpoint match where endpoints are distinct: prompt endpoint selection
     if (legalMove.requiresChoice && match.openLeft !== null && match.openRight !== null) {
       setChoiceTile(tile);
     } else {
+      // Single legal endpoint: play immediately
       const chosenEnd = legalMove.canPlaceLeft ? BoardEnd.Left : BoardEnd.Right;
       await executeMove(tile.id, chosenEnd);
     }
@@ -450,10 +523,14 @@ export const GamePage: React.FC<GamePageProps> = ({
         canDraw={privateState.canDraw}
         canSkip={privateState.canSkip}
         isDrawing={isDrawing}
+        isChoiceActive={choiceTile !== null}
         onDraw={handleDraw}
         onSkip={handleSkip}
         onRequestTeammateStart={handleRequestTeammateStart}
         onDropTileOnEnd={handleDropTileOnEnd}
+        onSelectEnd={(end) => {
+          if (choiceTile) executeMove(choiceTile.id, end);
+        }}
         onExitGame={onExitGame}
         onOpenSoundboard={() => setIsSoundboardOpen(true)}
         onOpenSoundSettings={() => setIsSoundSettingsOpen(true)}
@@ -462,8 +539,8 @@ export const GamePage: React.FC<GamePageProps> = ({
       {/* Interactive Player Hand at Bottom */}
       <PlayerHand
         hand={privateState.hand}
-        legalMoves={privateState.legalMoves}
-        isMyTurn={match.currentTurnUserId === currentUser.userId}
+        legalMoves={activeLegalMoves}
+        isMyTurn={isMyTurn}
         rejectedTileId={rejectedTileId}
         onTileClick={handleTileClick}
       />

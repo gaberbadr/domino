@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React from 'react';
 import { DominoTile } from '../types/domino';
 
 export interface DominoTileViewProps {
@@ -83,6 +83,50 @@ function getPipCoordinates(count: number, isHalfVertical: boolean, offsetX: numb
   }));
 }
 
+export const DominoGlobalDefs: React.FC = () => (
+  <svg
+    id="domino-global-defs"
+    style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', pointerEvents: 'none' }}
+    aria-hidden="true"
+  >
+    <defs>
+      {/* Luxury Ivory/Resin Tile Body Gradient */}
+      <linearGradient id="domino-body-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fcfaf5" />
+        <stop offset="45%" stopColor="#f6f2e8" />
+        <stop offset="100%" stopColor="#ebe4d4" />
+      </linearGradient>
+
+      {/* Realistic Metallic Brass Pin Gradient */}
+      <linearGradient id="domino-brass-grad" x1="20%" y1="20%" x2="80%" y2="80%">
+        <stop offset="0%" stopColor="#ffe699" />
+        <stop offset="40%" stopColor="#d4af37" />
+        <stop offset="70%" stopColor="#a37c22" />
+        <stop offset="100%" stopColor="#694e0e" />
+      </linearGradient>
+
+      {/* Recessed Inlaid Obsidian/Espresso Pip Gradient */}
+      <radialGradient id="domino-pip-grad" cx="35%" cy="35%" r="65%">
+        <stop offset="0%" stopColor="#3a2f26" />
+        <stop offset="70%" stopColor="#18120c" />
+        <stop offset="100%" stopColor="#080604" />
+      </radialGradient>
+
+      {/* Concealed Tile Ebony/Rosewood Wood Back Gradient */}
+      <linearGradient id="domino-concealed-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#2c1d14" />
+        <stop offset="50%" stopColor="#1e130c" />
+        <stop offset="100%" stopColor="#110a06" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
+
+const bodyGradId = 'domino-body-grad';
+const brassGradId = 'domino-brass-grad';
+const pipGradId = 'domino-pip-grad';
+const concealedGradId = 'domino-concealed-grad';
+
 export const DominoTileView: React.FC<DominoTileViewProps> = ({
   tile,
   isConcealed = false,
@@ -101,47 +145,7 @@ export const DominoTileView: React.FC<DominoTileViewProps> = ({
   style = {},
   className = ''
 }) => {
-  const instanceId = useId().replace(/:/g, '_');
   const isVertical = orientation === 'vertical';
-
-  const bodyGradId = `tile-body-${instanceId}`;
-  const brassGradId = `tile-brass-${instanceId}`;
-  const pipGradId = `tile-pip-${instanceId}`;
-  const concealedGradId = `tile-concealed-${instanceId}`;
-
-  // Shared SVG Gradients
-  const renderDefs = () => (
-    <defs>
-      {/* Luxury Ivory/Resin Tile Body Gradient */}
-      <linearGradient id={bodyGradId} x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#fcfaf5" />
-        <stop offset="45%" stopColor="#f6f2e8" />
-        <stop offset="100%" stopColor="#ebe4d4" />
-      </linearGradient>
-
-      {/* Realistic Metallic Brass Pin Gradient */}
-      <linearGradient id={brassGradId} x1="20%" y1="20%" x2="80%" y2="80%">
-        <stop offset="0%" stopColor="#ffe699" />
-        <stop offset="40%" stopColor="#d4af37" />
-        <stop offset="70%" stopColor="#a37c22" />
-        <stop offset="100%" stopColor="#694e0e" />
-      </linearGradient>
-
-      {/* Recessed Inlaid Obsidian/Espresso Pip Gradient */}
-      <radialGradient id={pipGradId} cx="35%" cy="35%" r="65%">
-        <stop offset="0%" stopColor="#3a2f26" />
-        <stop offset="70%" stopColor="#18120c" />
-        <stop offset="100%" stopColor="#080604" />
-      </radialGradient>
-
-      {/* Concealed Tile Ebony/Rosewood Wood Back Gradient */}
-      <linearGradient id={concealedGradId} x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#2c1d14" />
-        <stop offset="50%" stopColor="#1e130c" />
-        <stop offset="100%" stopColor="#110a06" />
-      </linearGradient>
-    </defs>
-  );
 
   // Concealed Tile (Face Down)
   if (isConcealed || !tile) {
@@ -157,7 +161,6 @@ export const DominoTileView: React.FC<DominoTileViewProps> = ({
           preserveAspectRatio="xMidYMid meet"
           className="domino-tile-svg"
         >
-          {renderDefs()}
           {isVertical ? (
             <>
               {/* Outer Tile Rect */}
@@ -275,8 +278,6 @@ export const DominoTileView: React.FC<DominoTileViewProps> = ({
         preserveAspectRatio="xMidYMid meet"
         className="domino-tile-svg"
       >
-        {renderDefs()}
-
         {isVertical ? (
           <>
             {/* Tile Base */}

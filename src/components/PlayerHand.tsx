@@ -33,7 +33,8 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
       const preserved = prevOrdered.filter((t) => currentIds.has(t.id));
       const preservedIds = new Set(preserved.map((t) => t.id));
       const newTiles = hand.filter((t) => !preservedIds.has(t.id));
-      return [...preserved, ...newTiles];
+      const combined = [...preserved, ...newTiles];
+      return combined.length === hand.length ? combined : hand;
     });
   }, [hand]);
 
@@ -257,9 +258,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                 onDragEnd={handleDragEnd}
                 onClick={() => {
                   setSelectedTileId(tile.id);
-                  if (playable) {
-                    onTileClick(tile);
-                  }
+                  onTileClick(tile);
                 }}
               />
             </div>

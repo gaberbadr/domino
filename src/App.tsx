@@ -17,6 +17,7 @@ import { CreateRoomModal } from './components/CreateRoomModal';
 import { JoinPrivateModal } from './components/JoinPrivateModal';
 import { ProfileModal } from './components/ProfileModal';
 import { AdminPanel } from './components/AdminPanel';
+import { DominoGlobalDefs } from './components/DominoTileView';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfileDto | null>(null);
@@ -193,6 +194,7 @@ export const App: React.FC = () => {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <DominoGlobalDefs />
       {/* Navigation Header (Shown on Home, Lobby, Admin, Profile) */}
       {currentPage !== 'game' && (
         <Navbar
