@@ -1,8 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { webrtcVoiceService, VoicePeerState, MicState } from '../services/webrtc';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  livekitVoiceService,
+  VoiceParticipant,
+  MicState,
+  VoiceConnectionState
+} from '../services/livekitVoice';
 import { getUserFromToken } from '../services/api';
 import { UserProfileDto } from '../types/domino';
-import { Mic, MicOff, Volume2, VolumeX, AlertCircle, Radio, Loader2, Volume1 } from 'lucide-react';
+import {
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  PhoneOff,
+  Radio,
+  Loader2,
+  Volume1,
+  AlertCircle,
+  Headphones,
+  Users
+} from 'lucide-react';
 
 interface VoiceChatControlsProps {
   roomCode: string;
@@ -15,28 +32,47 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
   currentUser,
   compact = false
 }) => {
-  const [micState, setMicState] = useState<MicState>(webrtcVoiceService.getMicState());
-  const [isSpeakerMuted, setIsSpeakerMuted] = useState<boolean>(webrtcVoiceService.isSpeakerMutedState());
-  const [peers, setPeers] = useState<VoicePeerState[]>(webrtcVoiceService.getPeers());
+  const [connectionState, setConnectionState] = useState<VoiceConnectionState>(
+    livekitVoiceService.getConnectionState()
+  );
+  const [micState, setMicState] = useState<MicState>(livekitVoiceService.getMicState());
+  const [isSpeakerMuted, setIsSpeakerMuted] = useState<boolean>(
+    livekitVoiceService.isSpeakerMutedState()
+  );
+  const [participants, setParticipants] = useState<VoiceParticipant[]>(
+    livekitVoiceService.getParticipants()
+  );
   const [isLocalSpeaking, setIsLocalSpeaking] = useState<boolean>(false);
-  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState<boolean>(webrtcVoiceService.getIsAutoplayBlocked());
+  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState<boolean>(
+    livekitVoiceService.getIsAutoplayBlocked()
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showRoster, setShowRoster] = useState<boolean>(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close roster dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowRoster(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   useEffect(() => {
-    // 1. Resolve user credentials
-    const tokenUser = getUserFromToken();
-    const userId = currentUser?.userId || tokenUser?.userId || '';
-    const userName = currentUser?.fullName || tokenUser?.fullName || 'لاعب';
-
-    // 2. Subscribe to real-time WebRTC voice updates
-    webrtcVoiceService.subscribe({
+    // 1. Subscribe to real-time LiveKit group voice events
+    const unsubscribe = livekitVoiceService.subscribe({
+      onConnectionStateChanged: (state) => setConnectionState(state),
       onMicStateChanged: (state) => setMicState(state),
-      onPeersChanged: (newPeers) => setPeers([...newPeers]),
+      onParticipantsChanged: (newParticipants) => setParticipants([...newParticipants]),
       onSpeakingChanged: (id, speaking) => {
         if (id === 'local') {
           setIsLocalSpeaking(speaking);
         } else {
-          setPeers((prev) =>
+          setParticipants((prev) =>
             prev.map((p) => (p.userId === id ? { ...p, isSpeaking: speaking } : p))
           );
         }
@@ -45,41 +81,55 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
       onError: (msg) => setErrorMessage(msg)
     });
 
-    // 3. Ensure joined to authoritative room voice channel
-    if (roomCode && userId) {
-      webrtcVoiceService.joinRoom(roomCode, userId, userName).catch((err) => {
-        console.warn('Voice join error:', err);
-      });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  const handleJoinVoice = async () => {
+    livekitVoiceService.unlockAudio();
+    setErrorMessage(null);
+
+    const tokenUser = getUserFromToken();
+    const userId = currentUser?.userId || tokenUser?.userId || '';
+    const userName = currentUser?.fullName || tokenUser?.fullName || 'لاعب';
+
+    try {
+      await livekitVoiceService.joinRoom(roomCode, userId, userName);
+    } catch (err: any) {
+      console.warn('Failed to join LiveKit voice room:', err);
     }
-  }, [roomCode, currentUser]);
+  };
+
+  const handleLeaveVoice = async () => {
+    await livekitVoiceService.leaveRoom();
+  };
 
   const toggleMic = async () => {
-    // Also unlock any pending audio
-    webrtcVoiceService.unlockAudio();
+    livekitVoiceService.unlockAudio();
 
     if (micState === 'active') {
-      webrtcVoiceService.setMicMuted(true);
+      await livekitVoiceService.setMicMuted(true);
     } else {
-      await webrtcVoiceService.startLocalAudio();
+      await livekitVoiceService.setMicMuted(false);
     }
   };
 
   const toggleSpeaker = () => {
     const nextState = !isSpeakerMuted;
-    webrtcVoiceService.setSpeakerMuted(nextState);
+    livekitVoiceService.setSpeakerMuted(nextState);
     setIsSpeakerMuted(nextState);
-    webrtcVoiceService.unlockAudio();
   };
 
   const handleUnlockAudio = () => {
-    webrtcVoiceService.unlockAudio();
+    livekitVoiceService.unlockAudio();
     setIsAutoplayBlocked(false);
   };
 
   const getMicTooltip = (): string => {
     switch (micState) {
       case 'active':
-        return 'المايكروفون يعمل - انقر للكتم 🎙️';
+        return isLocalSpeaking ? 'تتحدث الآن 🎙️ - انقر للكتم' : 'المايكروفون يعمل - انقر للكتم 🎙️';
       case 'connecting':
         return 'جاري الاتصال بالمايكروفون... ⏳';
       case 'permission_denied':
@@ -93,54 +143,207 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
   };
 
   const getMicBackground = (): string => {
-    if (micState === 'connecting') {
-      return '#854d0e';
-    }
-    if (micState === 'permission_denied' || micState === 'failed') {
-      return '#7f1d1d';
-    }
+    if (micState === 'connecting') return '#854d0e';
+    if (micState === 'permission_denied' || micState === 'failed') return '#7f1d1d';
     if (micState === 'active') {
       return isLocalSpeaking ? '#10b981' : 'linear-gradient(135deg, #15803d 0%, #166534 100%)';
     }
-    return '#2d241e';
+    return '#204B3F';
   };
+
+  // =========================================================================
+  // State 1: DISCONNECTED (Discord-Style Join Voice Prompt)
+  // =========================================================================
+  if (connectionState === 'disconnected') {
+    return (
+      <div
+        ref={containerRef}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.4rem',
+          position: 'relative',
+          zIndex: 10
+        }}
+      >
+        <button
+          onClick={handleJoinVoice}
+          className="btn"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: compact ? '0.35rem' : '0.5rem',
+            background: 'linear-gradient(135deg, #1B5142 0%, #134235 100%)',
+            border: '1px solid #426B5D',
+            color: '#F5F3EA',
+            padding: compact ? '0.28rem 0.65rem' : '0.45rem 0.95rem',
+            borderRadius: '9999px',
+            fontSize: compact ? '0.75rem' : '0.82rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+            transition: 'all 0.2s ease'
+          }}
+          title="انضمام للمحادثة الصوتية الجماعية عبر LiveKit"
+        >
+          <Headphones size={compact ? 13 : 15} style={{ color: '#D9B56D' }} />
+          <span>انضمام للصوت</span>
+        </button>
+
+        {errorMessage && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '125%',
+              right: 0,
+              background: '#991b1b',
+              color: '#fff',
+              padding: '0.4rem 0.75rem',
+              borderRadius: '0.5rem',
+              fontSize: '0.78rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.6)',
+              zIndex: 100,
+              border: '1px solid #ef4444'
+            }}
+          >
+            <AlertCircle size={14} />
+            <span>{errorMessage}</span>
+            <button
+              onClick={() => setErrorMessage(null)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#fff',
+                cursor: 'pointer',
+                fontWeight: 800
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // State 2: CONNECTING / RECONNECTING
+  // =========================================================================
+  if (connectionState === 'connecting' || connectionState === 'reconnecting') {
+    return (
+      <div
+        ref={containerRef}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.45rem',
+          background: '#1B5142',
+          border: '1px solid #426B5D',
+          padding: compact ? '0.25rem 0.6rem' : '0.4rem 0.85rem',
+          borderRadius: '9999px',
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.5)',
+          fontSize: compact ? '0.72rem' : '0.8rem',
+          color: '#E2C485'
+        }}
+      >
+        <Loader2 size={compact ? 13 : 15} className="animate-spin" />
+        <span>
+          {connectionState === 'reconnecting' ? 'إعادة الاتصال بالصوت...' : 'جاري الاتصال بـ LiveKit...'}
+        </span>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // State 3: ERROR STATE
+  // =========================================================================
+  if (connectionState === 'error') {
+    return (
+      <div
+        ref={containerRef}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.45rem',
+          background: '#7f1d1d',
+          border: '1px solid #ef4444',
+          padding: compact ? '0.25rem 0.6rem' : '0.4rem 0.85rem',
+          borderRadius: '9999px',
+          fontSize: compact ? '0.72rem' : '0.78rem',
+          color: '#fff'
+        }}
+      >
+        <AlertCircle size={compact ? 13 : 15} />
+        <span>تعذر الاتصال بالصوت</span>
+        <button
+          onClick={handleJoinVoice}
+          style={{
+            background: 'rgba(255, 255, 255, 0.2)',
+            border: 'none',
+            color: '#fff',
+            borderRadius: '4px',
+            padding: '0.15rem 0.45rem',
+            cursor: 'pointer',
+            fontSize: '0.72rem',
+            fontWeight: 700
+          }}
+        >
+          إعادة المحاولة
+        </button>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // State 4: CONNECTED (Discord-Style Live Voice Room)
+  // =========================================================================
+  const remoteParticipants = participants.filter((p) => !p.isLocal);
 
   return (
     <div
+      ref={containerRef}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: compact ? '0.35rem' : '0.65rem',
-        background: compact ? 'rgba(255, 255, 255, 0.05)' : 'rgba(32, 23, 16, 0.94)',
-        border: compact ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(229, 231, 235, 0.25)',
-        padding: compact ? '0.2rem 0.5rem' : '0.4rem 0.85rem',
+        background: compact ? 'rgba(27, 81, 66, 0.95)' : 'rgba(27, 81, 66, 0.98)',
+        border: '1px solid #426B5D',
+        padding: compact ? '0.2rem 0.5rem' : '0.35rem 0.75rem',
         borderRadius: '9999px',
-        backdropFilter: 'blur(8px)',
-        boxShadow: compact ? 'none' : '0 4px 15px rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(10px)',
+        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.5)',
         position: 'relative',
         zIndex: 10
       }}
     >
-      {/* Voice Status Pill */}
-      <div
+      {/* 1. Connected Status Badge / Participant Count Pill */}
+      <button
+        onClick={() => setShowRoster((prev) => !prev)}
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '0.25rem',
+          gap: '0.3rem',
           fontSize: compact ? '0.7rem' : '0.75rem',
           fontWeight: 700,
-          color: peers.length > 0 ? '#10b981' : 'var(--platinum-silver)',
-          padding: '0.12rem 0.45rem',
+          color: '#10b981',
+          padding: '0.15rem 0.5rem',
           borderRadius: '9999px',
-          background: 'rgba(255, 255, 255, 0.06)'
+          background: 'rgba(16, 185, 129, 0.12)',
+          border: '1px solid rgba(16, 185, 129, 0.3)',
+          cursor: 'pointer'
         }}
-        title={`المتصلون بالصوت في هذه الغرفة: ${peers.length + 1}`}
+        title={`LiveKit متصل: ${participants.length} في الغرفة (انقر لعرض قائمة اللاعبين)`}
       >
-        <Radio size={compact ? 11 : 12} className={peers.length > 0 ? 'turn-pulse' : ''} />
-        <span>{peers.length > 0 ? `${peers.length + 1}` : 'غرفة 1'}</span>
-      </div>
+        <Radio size={compact ? 11 : 12} className="turn-pulse" />
+        <Users size={compact ? 11 : 12} />
+        <span>{participants.length}</span>
+      </button>
 
-      {/* Mic Button */}
+      {/* 2. Mic Mute/Unmute Button */}
       <button
         onClick={toggleMic}
         className="btn"
@@ -148,18 +351,19 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
         style={{
           padding: 0,
           borderRadius: '50%',
-          width: compact ? 28 : 36,
-          height: compact ? 28 : 36,
+          width: compact ? 28 : 34,
+          height: compact ? 28 : 34,
           background: getMicBackground(),
-          color: micState === 'muted' ? '#9ca3af' : '#fff',
-          border: micState === 'active'
-            ? isLocalSpeaking
-              ? '2px solid #34d399'
-              : '1px solid #10b981'
-            : micState === 'permission_denied' || micState === 'failed'
-            ? '1px solid #ef4444'
-            : '1px solid #4b3e34',
-          boxShadow: isLocalSpeaking ? '0 0 14px rgba(16, 185, 129, 0.85)' : 'none',
+          color: micState === 'muted' ? '#B8C9C0' : '#fff',
+          border:
+            micState === 'active'
+              ? isLocalSpeaking
+                ? '2px solid #34d399'
+                : '1px solid #10b981'
+              : micState === 'permission_denied' || micState === 'failed'
+              ? '1px solid #ef4444'
+              : '1px solid #426B5D',
+          boxShadow: isLocalSpeaking ? '0 0 12px rgba(16, 185, 129, 0.9)' : 'none',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -177,49 +381,77 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
         )}
       </button>
 
-      {/* Speaker Button */}
+      {/* 3. Speaker Deafen / Unmute Button */}
       <button
         onClick={toggleSpeaker}
         className="btn"
         style={{
           padding: 0,
           borderRadius: '50%',
-          width: compact ? 28 : 36,
-          height: compact ? 28 : 36,
-          background: isSpeakerMuted ? '#7f1d1d' : '#2d241e',
-          color: isSpeakerMuted ? '#fca5a5' : 'var(--platinum-silver)',
-          border: isSpeakerMuted ? '1px solid #ef4444' : '1px solid #4b3e34',
+          width: compact ? 28 : 34,
+          height: compact ? 28 : 34,
+          background: isSpeakerMuted ? '#7f1d1d' : '#204B3F',
+          color: isSpeakerMuted ? '#fca5a5' : '#B8C9C0',
+          border: isSpeakerMuted ? '1px solid #ef4444' : '1px solid #426B5D',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          transition: 'all 0.2s ease'
         }}
-        title={isSpeakerMuted ? 'تشغيل سماعة المحادثة' : 'كتم سماعة المحادثة'}
+        title={isSpeakerMuted ? 'تشغيل سماعة المحادثة 🔊' : 'كتم سماعة المحادثة 🔇'}
       >
-        {isSpeakerMuted ? <VolumeX size={compact ? 14 : 16} /> : <Volume2 size={compact ? 14 : 16} />}
+        {isSpeakerMuted ? (
+          <VolumeX size={compact ? 14 : 16} />
+        ) : (
+          <Volume2 size={compact ? 14 : 16} />
+        )}
       </button>
 
-      {/* Peer Speaking Indicators */}
-      {peers.length > 0 && (
+      {/* 4. Leave Voice Room Button */}
+      <button
+        onClick={handleLeaveVoice}
+        className="btn"
+        style={{
+          padding: 0,
+          borderRadius: '50%',
+          width: compact ? 28 : 34,
+          height: compact ? 28 : 34,
+          background: 'rgba(239, 68, 68, 0.18)',
+          color: '#f87171',
+          border: '1px solid rgba(239, 68, 68, 0.45)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease'
+        }}
+        title="مغادرة المحادثة الصوتية ❌"
+      >
+        <PhoneOff size={compact ? 13 : 15} />
+      </button>
+
+      {/* 5. Compact Remote Participant Speaking Dots */}
+      {remoteParticipants.length > 0 && (
         <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', marginLeft: '0.2rem' }}>
-          {peers.map((peer) => (
+          {remoteParticipants.map((p) => (
             <div
-              key={peer.userId}
+              key={p.userId}
               style={{
                 width: 9,
                 height: 9,
                 borderRadius: '50%',
-                background: peer.isSpeaking ? '#10b981' : '#64748b',
-                boxShadow: peer.isSpeaking ? '0 0 9px #10b981' : 'none',
+                background: p.isSpeaking ? '#10b981' : p.isMuted ? '#ef4444' : '#64748b',
+                boxShadow: p.isSpeaking ? '0 0 9px #10b981' : 'none',
                 transition: 'all 0.2s ease'
               }}
-              title={`${peer.userName} (${peer.isSpeaking ? 'يتحدث 🎙️' : 'صامت'})`}
+              title={`${p.userName} (${p.isSpeaking ? 'يتحدث 🎙️' : p.isMuted ? 'مكتوم 🔇' : 'متصل'})`}
             />
           ))}
         </div>
       )}
 
-      {/* Autoplay blocked banner unlock */}
+      {/* 6. Autoplay Blocked Banner Unlock */}
       {isAutoplayBlocked && (
         <button
           onClick={handleUnlockAudio}
@@ -244,7 +476,95 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
         </button>
       )}
 
-      {/* Error Message Tooltip */}
+      {/* 7. Discord-Style Participants Roster Dropdown */}
+      {showRoster && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '125%',
+            right: 0,
+            minWidth: 220,
+            background: '#153A30',
+            border: '1px solid #426B5D',
+            borderRadius: '0.75rem',
+            padding: '0.65rem',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.75)',
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.45rem'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid #426B5D',
+              paddingBottom: '0.35rem',
+              fontSize: '0.75rem',
+              color: '#B8C9C0',
+              fontWeight: 700
+            }}
+          >
+            <span>المتصلون بالصوت ({participants.length})</span>
+            <span style={{ color: '#10b981', fontSize: '0.7rem' }}>LiveKit Cloud</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: 180, overflowY: 'auto' }}>
+            {participants.map((p) => (
+              <div
+                key={p.userId}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.3rem 0.5rem',
+                  borderRadius: '0.4rem',
+                  background: p.isSpeaking ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                  border: p.isSpeaking ? '1px solid #10b981' : '1px solid transparent',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <div
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: '50%',
+                      background: '#204B3F',
+                      border: p.isSpeaking ? '2px solid #10b981' : '1px solid #426B5D',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      color: '#F5F3EA'
+                    }}
+                  >
+                    {p.userName.slice(0, 1)}
+                  </div>
+                  <span style={{ fontSize: '0.78rem', color: '#F5F3EA', fontWeight: 600 }}>
+                    {p.userName} {p.isLocal && <span style={{ color: '#D9B56D', fontSize: '0.7rem' }}>(أنت)</span>}
+                  </span>
+                </div>
+
+                <div>
+                  {p.isSpeaking ? (
+                    <Mic size={13} style={{ color: '#10b981' }} />
+                  ) : p.isMuted ? (
+                    <MicOff size={13} style={{ color: '#ef4444' }} />
+                  ) : (
+                    <Mic size={13} style={{ color: '#94a3b8' }} />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 8. Error Message Banner */}
       {errorMessage && (
         <div
           style={{
@@ -253,9 +573,9 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
             left: 0,
             background: '#991b1b',
             color: '#fff',
-            padding: '0.5rem 0.85rem',
+            padding: '0.45rem 0.75rem',
             borderRadius: '0.6rem',
-            fontSize: '0.8rem',
+            fontSize: '0.78rem',
             display: 'flex',
             alignItems: 'center',
             gap: '0.4rem',
@@ -265,7 +585,7 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
             border: '1px solid #ef4444'
           }}
         >
-          <AlertCircle size={15} />
+          <AlertCircle size={14} />
           <span>{errorMessage}</span>
           <button
             onClick={() => setErrorMessage(null)}

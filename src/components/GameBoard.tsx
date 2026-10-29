@@ -9,7 +9,7 @@ import { VoiceChatControls } from './VoiceChatControls';
 import { BlockedRoundTableOverlay } from './BlockedRoundTableOverlay';
 import { calculateBoardLayout } from '../services/dominoLayoutEngine';
 import { STRINGS } from '../constants/strings';
-import { Clock, Hand, LogOut, Volume2, Sliders, History, X, Award, Scale, ShieldAlert, Maximize2, Minimize2, MoreVertical } from 'lucide-react';
+import { Clock, Hand, LogOut, Volume2, Sliders, History, X, Award, Scale, ShieldAlert, Maximize2, Minimize2, MoreVertical, Trophy } from 'lucide-react';
 
 interface GameBoardProps {
   match: GameMatchDto;
@@ -187,6 +187,84 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
       boardHeight: boardDimensions.height
     });
   }, [match.boardChain, match.openLeft, match.openRight, boardDimensions]);
+
+  // Authoritative deduplication of completed rounds by roundNumber to prevent duplicate counting
+  const uniqueRounds = useMemo(() => {
+    const raw = match.roundHistories || [];
+    const map = new Map<number, typeof raw[0]>();
+    for (const h of raw) {
+      if (!map.has(h.roundNumber)) {
+        map.set(h.roundNumber, h);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.roundNumber - b.roundNumber);
+  }, [match.roundHistories]);
+
+  // Per-Player & Team Totals Summary across all completed rounds
+  const playerTotalsSummary = useMemo(() => {
+    const players = match.players || [];
+    const isQuadruple = match.mode === GameMode.Quadruple;
+
+    // Build stats for EVERY player in the match, including 0-win / 0-point players
+    const playerStats = players.map((p) => {
+      const roundsWon = uniqueRounds.filter((h) => h.winnerUserId === p.userId).length;
+      let pointsAccumulated = 0;
+
+      if (match.mode === GameMode.Individual) {
+        // Individual mode: Seat 0 is team1, Seat 1 is team2, or cumulativeScore
+        pointsAccumulated = p.cumulativeScore ?? (p.seatIndex === 0 ? match.team1Score : match.team2Score);
+      } else if (match.mode === GameMode.Triple) {
+        // Triple mode: individual player cumulativeScore or sum of their winning rounds
+        pointsAccumulated = p.cumulativeScore ?? uniqueRounds
+          .filter((h) => h.winnerUserId === p.userId)
+          .reduce((sum, h) => sum + (h.pointsAwarded || 0), 0);
+      } else if (isQuadruple) {
+        // Quadruple mode: individual player round-winning contributions
+        pointsAccumulated = uniqueRounds
+          .filter((h) => h.winnerUserId === p.userId)
+          .reduce((sum, h) => sum + (h.pointsAwarded || 0), 0);
+      } else {
+        pointsAccumulated = p.cumulativeScore ?? 0;
+      }
+
+      return {
+        userId: p.userId,
+        displayName: p.displayName,
+        seatIndex: p.seatIndex,
+        teamIndex: p.teamIndex,
+        isCurrentUser: p.userId === currentUserId,
+        roundsWon,
+        pointsAccumulated
+      };
+    });
+
+    let team1Stats = null;
+    let team2Stats = null;
+    if (isQuadruple) {
+      const team1RoundsWon = uniqueRounds.filter((h) => h.winningTeamIndex === 1).length;
+      const team2RoundsWon = uniqueRounds.filter((h) => h.winningTeamIndex === 2).length;
+      team1Stats = {
+        teamIndex: 1,
+        totalPoints: match.team1Score,
+        roundsWon: team1RoundsWon,
+        players: playerStats.filter((p) => p.teamIndex === 1)
+      };
+      team2Stats = {
+        teamIndex: 2,
+        totalPoints: match.team2Score,
+        roundsWon: team2RoundsWon,
+        players: playerStats.filter((p) => p.teamIndex === 2)
+      };
+    }
+
+    return {
+      isQuadruple,
+      totalCompletedRounds: uniqueRounds.length,
+      playerStats,
+      team1Stats,
+      team2Stats
+    };
+  }, [match.players, match.mode, match.team1Score, match.team2Score, uniqueRounds, currentUserId]);
 
   // Max order index to identify newest played tile
   const maxOrderIndex = match.boardChain.length > 0
@@ -1078,7 +1156,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
           <div
             className="modal-content"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '480px', padding: '1.25rem', textAlign: 'right' }}
+            style={{ maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', padding: '1.25rem', textAlign: 'right' }}
           >
             <div
               style={{
@@ -1127,24 +1205,24 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
               </strong>
             </div>
 
-            {/* Completed Rounds List */}
-            <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-              {(!match.roundHistories || match.roundHistories.length === 0) ? (
-                <div style={{ textAlign: 'center', color: '#94a3b8', padding: '1.75rem', fontSize: '0.9rem' }}>
+            {/* Completed Rounds List (Preserved Details) */}
+            <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+              {uniqueRounds.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#94a3b8', padding: '1.5rem', fontSize: '0.9rem' }}>
                   لسه مفيش جولات انتهت في هذا الماتش.
                 </div>
               ) : (
-                match.roundHistories.map((h) => {
+                uniqueRounds.map((h) => {
                   const isDraw = h.outcomeType === 2; // Draw
                   const isBlocked = h.outcomeType === 1; // Blocked
                   return (
                     <div
-                      key={h.roundNumber}
+                      key={`round-hist-${h.roundNumber}`}
                       style={{
                         background: 'rgba(255, 255, 255, 0.04)',
                         border: '1px solid rgba(255, 255, 255, 0.08)',
                         borderRadius: '0.65rem',
-                        padding: '0.65rem 0.85rem',
+                        padding: '0.6rem 0.8rem',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between'
@@ -1165,21 +1243,171 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                           ج {h.roundNumber}
                         </span>
                         <div>
-                          <strong style={{ fontSize: '0.88rem', color: isDraw ? '#60a5fa' : isBlocked ? 'var(--gold-primary)' : '#10b981', display: 'block' }}>
+                          <strong style={{ fontSize: '0.86rem', color: isDraw ? '#60a5fa' : isBlocked ? 'var(--gold-primary)' : '#10b981', display: 'block' }}>
                             {isDraw ? 'تعادل (DRAW)' : isBlocked ? `فوز بالقفلة (${h.winnerName || 'فائز'})` : `فائز: ${h.winnerName || 'لاعب'}`}
                           </strong>
-                          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{h.reason}</span>
+                          <span style={{ fontSize: '0.74rem', color: '#94a3b8' }}>{h.reason}</span>
                         </div>
                       </div>
 
                       <div style={{ textAlign: 'left' }}>
-                        <span style={{ fontSize: '0.95rem', fontWeight: 900, color: isDraw ? '#94a3b8' : 'var(--gold-primary)' }}>
+                        <span style={{ fontSize: '0.92rem', fontWeight: 900, color: isDraw ? '#94a3b8' : 'var(--gold-primary)' }}>
                           {isDraw ? '0 بنط' : `+${h.pointsAwarded} بنط`}
                         </span>
                       </div>
                     </div>
                   );
                 })
+              )}
+            </div>
+
+            {/* Per-Player & Team Totals Summary Section */}
+            <div
+              style={{
+                marginTop: '1rem',
+                paddingTop: '0.85rem',
+                borderTop: '1px solid rgba(255, 255, 255, 0.1)'
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '0.65rem'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Trophy size={16} color="var(--gold-primary)" />
+                  <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--gold-primary)', margin: 0 }}>
+                    إجمالي أداء اللاعبين في الجولات
+                  </h4>
+                </div>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                  ({playerTotalsSummary.totalCompletedRounds} جولة منتهية)
+                </span>
+              </div>
+
+              {playerTotalsSummary.isQuadruple && playerTotalsSummary.team1Stats && playerTotalsSummary.team2Stats ? (
+                // Quadruple: Display clear team totals and individual player contributions
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  {/* Team 1 Summary Card */}
+                  <div
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(212, 175, 55, 0.25)',
+                      borderRadius: '0.65rem',
+                      padding: '0.65rem 0.8rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      <strong style={{ fontSize: '0.88rem', color: '#f8fafc' }}>
+                        فريق 1 (إجمالي الفريق)
+                      </strong>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>
+                          فوز: <strong style={{ color: '#f8fafc' }}>{playerTotalsSummary.team1Stats.roundsWon}</strong> جولة
+                        </span>
+                        <span style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--gold-primary)' }}>
+                          {playerTotalsSummary.team1Stats.totalPoints} بنط
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '0.4rem' }}>
+                      {playerTotalsSummary.team1Stats.players.map((p) => (
+                        <div key={p.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                          <span style={{ color: p.isCurrentUser ? 'var(--gold-primary)' : '#cbd5e1', fontWeight: p.isCurrentUser ? 800 : 500 }}>
+                            {p.displayName} {p.isCurrentUser ? '(أنت)' : ''}
+                          </span>
+                          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                            <span style={{ color: '#94a3b8' }}>
+                              فوز شخصي: <strong style={{ color: '#f8fafc' }}>{p.roundsWon}</strong> جولة
+                            </span>
+                            <span style={{ color: '#e2e8f0', fontWeight: 700 }}>
+                              {p.pointsAccumulated} بنط
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Team 2 Summary Card */}
+                  <div
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(212, 175, 55, 0.25)',
+                      borderRadius: '0.65rem',
+                      padding: '0.65rem 0.8rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      <strong style={{ fontSize: '0.88rem', color: '#f8fafc' }}>
+                        فريق 2 (إجمالي الفريق)
+                      </strong>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>
+                          فوز: <strong style={{ color: '#f8fafc' }}>{playerTotalsSummary.team2Stats.roundsWon}</strong> جولة
+                        </span>
+                        <span style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--gold-primary)' }}>
+                          {playerTotalsSummary.team2Stats.totalPoints} بنط
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '0.4rem' }}>
+                      {playerTotalsSummary.team2Stats.players.map((p) => (
+                        <div key={p.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                          <span style={{ color: p.isCurrentUser ? 'var(--gold-primary)' : '#cbd5e1', fontWeight: p.isCurrentUser ? 800 : 500 }}>
+                            {p.displayName} {p.isCurrentUser ? '(أنت)' : ''}
+                          </span>
+                          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                            <span style={{ color: '#94a3b8' }}>
+                              فوز شخصي: <strong style={{ color: '#f8fafc' }}>{p.roundsWon}</strong> جولة
+                            </span>
+                            <span style={{ color: '#e2e8f0', fontWeight: 700 }}>
+                              {p.pointsAccumulated} بنط
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Individual & Triple: List every player including those with 0 wins / 0 points
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {playerTotalsSummary.playerStats.map((p) => (
+                    <div
+                      key={p.userId}
+                      style={{
+                        background: p.isCurrentUser ? 'rgba(212, 175, 55, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                        border: p.isCurrentUser ? '1px solid rgba(212, 175, 55, 0.35)' : '1px solid rgba(255, 255, 255, 0.07)',
+                        borderRadius: '0.65rem',
+                        padding: '0.6rem 0.8rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <div>
+                        <strong style={{ fontSize: '0.88rem', color: p.isCurrentUser ? 'var(--gold-primary)' : '#f8fafc', display: 'block' }}>
+                          {p.displayName} {p.isCurrentUser ? '(أنت)' : ''}
+                        </strong>
+                        <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                          الجولات الفائزة: <strong style={{ color: '#f8fafc' }}>{p.roundsWon}</strong> جولة
+                        </span>
+                      </div>
+
+                      <div style={{ textAlign: 'left' }}>
+                        <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--gold-primary)' }}>
+                          {p.pointsAccumulated} بنط
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

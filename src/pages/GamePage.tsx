@@ -786,6 +786,7 @@ export const GamePage: React.FC<GamePageProps> = ({
         <RoundEndModal
           key={`round-end-${roundEndResult?.roundNumber ?? 0}`}
           result={roundEndResult}
+          match={match}
           agreedCount={agreedCount}
           totalRequired={match.players.length}
           onContinue={async () => {

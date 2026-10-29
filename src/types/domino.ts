@@ -141,6 +141,7 @@ export interface RtcIceServerDto {
 
 export interface VoiceTokenDto {
   token: string;
+  liveKitUrl?: string;
   roomCode: string;
   roomId: string;
   voiceRoomId: string;
