@@ -788,6 +788,223 @@ table tbody tr:hover {
    MOBILE & TABLET RESPONSIVENESS
    ========================================== */
 
+/* ==========================================
+   MOBILE & TABLET RESPONSIVENESS (NATIVE QUALITY)
+   ========================================== */
+
+/* Fullscreen / Immersive Game Container */
+.gameplay-screen.is-fullscreen-game {
+  height: 100dvh !important;
+  width: 100vw !important;
+}
+.gameplay-screen.is-fullscreen-game .game-table-container {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border-width: 0 !important;
+}
+.gameplay-screen.is-fullscreen-game .board-felt-canvas {
+  margin: 0.15rem !important;
+  border-radius: 0.5rem !important;
+}
+
+/* Header Visibility Toggle: Desktop vs Mobile */
+.mobile-header-bar {
+  display: none;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.desktop-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+/* Mobile Score Chip */
+.mobile-score-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: 9999px;
+  background: rgba(32, 75, 63, 0.7);
+  border: 1px solid #426B5D;
+  color: #F5F3EA;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.mobile-score-chip:hover {
+  border-color: #D9B56D;
+}
+.mobile-round-tag {
+  font-size: 0.68rem;
+  color: #D9B56D;
+  font-weight: 700;
+  border-left: 1px solid #426B5D;
+  padding-left: 0.35rem;
+}
+.mobile-score-val {
+  font-size: 0.85rem;
+  color: #F5F3EA;
+  font-weight: 900;
+}
+
+/* Mobile Turn Indicator & Timer (High Priority Center) */
+.mobile-turn-center {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  justify-content: center;
+  flex: 1;
+}
+.mobile-turn-pill {
+  padding: 0.18rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  background: #204B3F;
+  border: 1px solid #426B5D;
+  color: #B8C9C0;
+  white-space: nowrap;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+.mobile-turn-pill.is-my-turn {
+  background: #D9B56D !important;
+  color: #20382F !important;
+  border-color: #D9B56D !important;
+  font-weight: 900 !important;
+  box-shadow: 0 0 10px rgba(217, 181, 109, 0.45) !important;
+  animation: choicePulse 2s infinite ease-in-out;
+}
+
+/* Mobile Actions Group (Fullscreen & Tools Button) */
+.mobile-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.btn-icon-mobile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #204B3F;
+  border: 1px solid #426B5D;
+  color: #F5F3EA;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  padding: 0;
+}
+.btn-icon-mobile:hover,
+.btn-icon-mobile.is-active {
+  background: #265a4c;
+  border-color: #D9B56D;
+  color: #D9B56D;
+}
+
+/* Mobile Tools Popover & Bottom Sheet */
+.mobile-tools-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(10, 26, 21, 0.78);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 3.2rem) 1rem 1rem;
+  animation: fadeIn 0.15s ease-out;
+}
+.mobile-tools-sheet {
+  width: 100%;
+  max-width: 380px;
+  background: #1B5142;
+  border: 1.5px solid #426B5D;
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-lg);
+  padding: 1.1rem;
+  animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #F5F3EA;
+}
+.mobile-tools-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid #426B5D;
+}
+.btn-icon-close {
+  background: transparent;
+  border: none;
+  color: #B8C9C0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+.btn-icon-close:hover {
+  color: #F5F3EA;
+}
+.mobile-tools-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+.mobile-tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.75rem 0.5rem;
+  background: #204B3F;
+  border: 1px solid #426B5D;
+  border-radius: 0.85rem;
+  color: #F5F3EA;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+.mobile-tool-btn:active {
+  transform: scale(0.97);
+}
+.mobile-tool-btn:hover {
+  background: #265a4c;
+  border-color: #D9B56D;
+}
+.mobile-tool-btn.danger {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  grid-column: span 2;
+}
+.mobile-voice-wrapper {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #426B5D;
+}
+
 /* Tablets and small laptops (<= 1024px) */
 @media (max-width: 1024px) {
   .game-table-container {
@@ -798,17 +1015,27 @@ table tbody tr:hover {
   }
 }
 
-/* Mobile Portrait (<= 600px) */
+/* Mobile Screens (<= 768px, e.g. iPhone 12, Galaxy, etc.) */
+@media (max-width: 768px) {
+  .desktop-header-bar {
+    display: none !important;
+  }
+  .mobile-header-bar {
+    display: flex !important;
+  }
+  .game-table-header {
+    padding: 0.25rem 0.55rem !important;
+    min-height: 40px !important;
+    gap: 0.3rem !important;
+  }
+}
+
+/* Mobile Portrait Phones (<= 600px, e.g. iPhone 12 at 390px) */
 @media (max-width: 600px) {
   .game-table-container {
-    margin: 0.2rem 0.25rem !important;
+    margin: 0.15rem 0.25rem !important;
     border-radius: 0.85rem !important;
     border-width: 2px !important;
-  }
-
-  .game-table-header {
-    padding: 0.3rem 0.5rem !important;
-    gap: 0.35rem !important;
   }
 
   .virtual-felt-area {
@@ -817,7 +1044,21 @@ table tbody tr:hover {
     position: relative !important;
   }
 
-  /* Anchor bank neatly in top-right of the felt on mobile portrait so the felt gets 100% width */
+  /* Suppress tall fan of concealed tile backs on portrait phone to give table maximum height */
+  .concealed-hand-row.top {
+    display: none !important;
+  }
+  .opponent-seat.seat-top {
+    gap: 0 !important;
+    padding: 0.15rem 0 0.1rem !important;
+  }
+  .opponent-seat.seat-top .player-badge-card {
+    padding: 0.2rem 0.75rem !important;
+    gap: 0.35rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  /* Anchor bank neatly in top-right of the felt so felt gets 100% width */
   .table-right-sidebar {
     position: absolute !important;
     top: 6px !important;
@@ -830,8 +1071,23 @@ table tbody tr:hover {
   }
 
   .board-felt-canvas {
-    margin: 0.25rem !important;
+    margin: 0.15rem !important;
     border-radius: 0.75rem !important;
+  }
+
+  /* Player Hand Layout on Mobile Portrait */
+  .player-hand-container {
+    padding: 0.25rem 0.4rem calc(env(safe-area-inset-bottom, 0px) + 0.35rem) !important;
+    box-shadow: 0 -6px 20px rgba(10, 26, 21, 0.45) !important;
+  }
+
+  .player-hand-header {
+    margin-bottom: 0.15rem !important;
+    padding: 0 0.25rem !important;
+  }
+
+  .reorder-tip-text {
+    display: none !important;
   }
 
   /* Scale normal hand tiles to fit 7 tiles comfortably across 360-390px screens */
@@ -845,18 +1101,16 @@ table tbody tr:hover {
     height: 38px !important;
   }
 
-  .player-hand-container {
-    padding: 0.3rem 0.4rem 0.5rem !important;
-  }
-
   .hand-tiles-row {
-    padding: 0.25rem 0.25rem 0.45rem !important;
+    padding: 0.2rem 0.25rem 0.4rem !important;
     gap: 0.35rem !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
   }
 }
 
-/* Very Narrow Mobile Screens (<= 400px, e.g. iPhone SE / 375px / 390px) */
-@media (max-width: 400px) {
+/* Very Narrow Mobile Screens (<= 380px, e.g. iPhone SE / 360px Android) */
+@media (max-width: 380px) {
   .domino-tile.vertical.size-normal {
     width: 35px !important;
     height: 70px !important;
@@ -868,29 +1122,56 @@ table tbody tr:hover {
   }
 
   .hand-tiles-row {
-    gap: 0.25rem !important;
+    gap: 0.22rem !important;
   }
 
   .table-right-sidebar {
     transform: scale(0.75) !important;
   }
+
+  .mobile-turn-pill {
+    max-width: 85px !important;
+    font-size: 0.72rem !important;
+  }
 }
 
 /* Mobile Landscape (<= 520px height) */
 @media (max-height: 520px) and (orientation: landscape) {
+  .gameplay-screen {
+    padding-left: env(safe-area-inset-left, 0px) !important;
+    padding-right: env(safe-area-inset-right, 0px) !important;
+  }
+
   .game-table-container {
-    margin: 0.15rem 0.35rem !important;
+    margin: 0.1rem 0.25rem !important;
     border-width: 2px !important;
-    border-radius: 0.75rem !important;
+    border-radius: 0.65rem !important;
   }
 
   .game-table-header {
-    padding: 0.2rem 0.6rem !important;
-    gap: 0.4rem !important;
+    padding: 0.15rem 0.5rem !important;
+    min-height: 34px !important;
+    gap: 0.35rem !important;
   }
 
   .player-hand-container {
-    padding: 0.2rem 0.5rem 0.3rem !important;
+    padding: 0.15rem 0.5rem calc(env(safe-area-inset-bottom, 0px) + 0.15rem) !important;
+  }
+
+  .player-hand-header {
+    margin-bottom: 0.1rem !important;
+  }
+
+  .reorder-tip-text {
+    display: none !important;
+  }
+
+  .concealed-hand-row.top {
+    display: none !important;
+  }
+
+  .opponent-seat.seat-top {
+    padding: 0 !important;
   }
 
   .domino-tile.vertical.size-normal {
@@ -904,15 +1185,15 @@ table tbody tr:hover {
   }
 
   .hand-tiles-row {
-    padding: 0.2rem 0.4rem !important;
-    gap: 0.3rem !important;
+    padding: 0.15rem 0.35rem !important;
+    gap: 0.25rem !important;
   }
 
   .table-right-sidebar {
-    transform: scale(0.8);
+    transform: scale(0.78);
     transform-origin: center right;
-    padding-right: 0.4rem !important;
-    gap: 0.4rem !important;
+    padding-right: 0.3rem !important;
+    gap: 0.3rem !important;
   }
 }
 

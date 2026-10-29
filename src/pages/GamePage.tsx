@@ -23,7 +23,6 @@ import { InvalidDealModal } from '../components/InvalidDealModal';
 import { RoundEndModal } from '../components/RoundEndModal';
 import { MatchEndModal } from '../components/MatchEndModal';
 import { VoiceChatControls } from '../components/VoiceChatControls';
-import { RotateDeviceOverlay } from '../components/RotateDeviceOverlay';
 import { SoundboardDrawer } from '../components/SoundboardDrawer';
 import { SoundSettingsModal } from '../components/SoundSettingsModal';
 import { soundService } from '../services/soundService';
@@ -48,9 +47,9 @@ export const GamePage: React.FC<GamePageProps> = ({
   const [match, setMatch] = useState<GameMatchDto>(initialMatch);
   const [privateState, setPrivateState] = useState<PlayerPrivateStateDto>(initialPrivateState);
 
-  // Orientation handling
-  const [isPortrait, setIsPortrait] = useState<boolean>(false);
-  const [dismissRotatePrompt, setDismissRotatePrompt] = useState<boolean>(false);
+  // Orientation and Fullscreen handling
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isImmersive, setIsImmersive] = useState<boolean>(false);
 
   // Modals & Action States
   const [choiceTile, setChoiceTile] = useState<DominoTile | null>(null);
@@ -151,32 +150,18 @@ export const GamePage: React.FC<GamePageProps> = ({
     privateState.hand
   ]);
 
-  // Landscape Orientation Lock & Detection
+  // Fullscreen event listener and cleanup
   useEffect(() => {
-    const checkOrientation = () => {
-      const isMobileOrTablet = window.innerWidth <= 1024 || 'ontouchstart' in window;
-      const isPortraitMode = window.innerHeight > window.innerWidth;
-      setIsPortrait(isMobileOrTablet && isPortraitMode);
+    const handleFullscreenChange = () => {
+      const active = Boolean(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      setIsFullscreen(active);
     };
 
-    // Try locking landscape orientation if supported
-    try {
-      if (screen.orientation && 'lock' in screen.orientation) {
-        (screen.orientation as any).lock('landscape').catch(() => {
-          // Gracefully fallback when browser policy blocks automatic lock
-        });
-      }
-    } catch {
-      // Ignore unsupported orientation lock
-    }
-
-    checkOrientation();
-    window.addEventListener('resize', checkOrientation);
-    window.addEventListener('orientationchange', checkOrientation);
-
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     return () => {
-      window.removeEventListener('resize', checkOrientation);
-      window.removeEventListener('orientationchange', checkOrientation);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
     };
   }, []);
 
@@ -532,29 +517,53 @@ export const GamePage: React.FC<GamePageProps> = ({
     }
   };
 
+  const handleToggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+        const docEl = document.documentElement as any;
+        if (docEl.requestFullscreen) {
+          await docEl.requestFullscreen();
+        } else if (docEl.webkitRequestFullscreen) {
+          await docEl.webkitRequestFullscreen();
+        } else {
+          setIsImmersive((prev) => !prev);
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+      }
+    } catch {
+      // Browsers like iOS Safari block or don't implement Fullscreen API on iPhones; fallback to immersive layout
+      setIsImmersive((prev) => !prev);
+    }
+  };
+
   return (
     <div
-      className="gameplay-screen"
+      className={`gameplay-screen ${isFullscreen || isImmersive ? 'is-fullscreen-game' : ''}`}
       style={{
         display: 'flex',
         flexDirection: 'column',
         height: '100dvh',
         position: 'relative',
         background: 'var(--bg-main)',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
+        touchAction: 'manipulation'
       }}
     >
-      {/* Rotate Device Overlay for Portrait Phones */}
-      {isPortrait && !dismissRotatePrompt && (
-        <RotateDeviceOverlay onDismiss={() => setDismissRotatePrompt(true)} />
-      )}
-
       {/* Floating Toast Notification */}
       {toastMessage && (
         <div
           style={{
             position: 'absolute',
-            top: '0.85rem',
+            top: 'calc(env(safe-area-inset-top, 0px) + 0.85rem)',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 100,
@@ -597,6 +606,8 @@ export const GamePage: React.FC<GamePageProps> = ({
         drawingTarget={drawingTarget}
         isChoiceActive={choiceTile !== null}
         roomCode={roomCode}
+        isFullscreen={isFullscreen || isImmersive}
+        onToggleFullscreen={handleToggleFullscreen}
         onDraw={handleDraw}
         onSkip={handleSkip}
         onRequestTeammateStart={handleRequestTeammateStart}

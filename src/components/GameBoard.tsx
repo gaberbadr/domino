@@ -8,7 +8,7 @@ import { AutoSkipButton } from './AutoSkipButton';
 import { VoiceChatControls } from './VoiceChatControls';
 import { calculateBoardLayout } from '../services/dominoLayoutEngine';
 import { STRINGS } from '../constants/strings';
-import { Clock, Hand, LogOut, Volume2, Sliders, History, X, Award, Scale, ShieldAlert } from 'lucide-react';
+import { Clock, Hand, LogOut, Volume2, Sliders, History, X, Award, Scale, ShieldAlert, Maximize2, Minimize2, MoreVertical } from 'lucide-react';
 
 interface GameBoardProps {
   match: GameMatchDto;
@@ -19,6 +19,8 @@ interface GameBoardProps {
   drawingTarget?: 'me' | 'opponent' | null;
   isChoiceActive?: boolean;
   roomCode?: string;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
   onDraw: () => void;
   onSkip: () => void;
   onRequestTeammateStart?: () => void;
@@ -80,6 +82,8 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
   drawingTarget = null,
   isChoiceActive = false,
   roomCode,
+  isFullscreen = false,
+  onToggleFullscreen,
   onDraw,
   onSkip,
   onRequestTeammateStart,
@@ -93,6 +97,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
   const [dragOverEnd, setDragOverEnd] = useState<BoardEnd | null>(null);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const feltCanvasRef = useRef<HTMLDivElement>(null);
   const [boardDimensions, setBoardDimensions] = useState<{ width: number; height: number }>({
@@ -212,7 +217,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
         boxShadow: 'inset 0 0 70px rgba(0, 0, 0, 0.85), 0 12px 35px rgba(0, 0, 0, 0.65)'
       }}
     >
-      {/* Top Header: Organized via Flexbox into 4 Distinct Logical Groups */}
+      {/* Top Header: Responsive Container */}
       <div
         className="game-table-header"
         style={{
@@ -228,7 +233,78 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
           zIndex: 20
         }}
       >
-        {/* Group 1: Match & Round Information */}
+        {/* ========================================================
+            MOBILE COMPACT HEADER (Active on Mobile screens <= 768px)
+            ======================================================== */}
+        <div className="mobile-header-bar">
+          {/* Mobile Right/Start: Score Chip & Round (Tap opens history) */}
+          <button
+            type="button"
+            className="mobile-score-chip"
+            onClick={() => setIsHistoryOpen(true)}
+            title="عرض سجل الجولات والنقاط"
+          >
+            <span className="mobile-round-tag">جولة {match.roundNumber}</span>
+            <span className="mobile-score-val">
+              {match.mode === GameMode.Individual
+                ? `${myPlayer?.seatIndex === 0 ? match.team1Score : match.team2Score} : ${myPlayer?.seatIndex === 0 ? match.team2Score : match.team1Score}`
+                : match.mode === GameMode.Quadruple
+                ? `${myPlayer?.teamIndex === 1 ? match.team1Score : match.team2Score} : ${myPlayer?.teamIndex === 1 ? match.team2Score : match.team1Score}`
+                : `${myPlayer?.cumulativeScore ?? 0}`}
+            </span>
+          </button>
+
+          {/* Mobile Center: Turn Indicator & Timer (High Priority) */}
+          <div className="mobile-turn-center">
+            <div
+              className={`mobile-turn-pill ${isMyTurn ? 'is-my-turn' : ''}`}
+              title="صاحب الدور الحالي"
+            >
+              <span>
+                {isMyTurn
+                  ? 'دورك'
+                  : currentTurnPlayer?.displayName
+                  ? (currentTurnPlayer.displayName.length > 7 ? currentTurnPlayer.displayName.slice(0, 6) + '..' : currentTurnPlayer.displayName)
+                  : 'الخصم'}
+              </span>
+            </div>
+
+            <TurnTimerPill turnDeadlineUtc={match.turnDeadlineUtc} />
+
+            {isMyTurn && canSkip && (
+              <AutoSkipButton onSkip={onSkip} initialSeconds={3} />
+            )}
+          </div>
+
+          {/* Mobile Left/End: Fullscreen Toggle & Tools Menu */}
+          <div className="mobile-actions-group">
+            {onToggleFullscreen && (
+              <button
+                type="button"
+                className="btn-icon-mobile"
+                onClick={onToggleFullscreen}
+                title={isFullscreen ? 'تصغير الشاشة' : 'تكبير ملء الشاشة'}
+              >
+                {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </button>
+            )}
+
+            <button
+              type="button"
+              className={`btn-icon-mobile ${isMobileMenuOpen ? 'is-active' : ''}`}
+              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+              title="قائمة الأدوات والإعدادات"
+            >
+              <MoreVertical size={17} />
+            </button>
+          </div>
+        </div>
+
+        {/* ========================================================
+            DESKTOP HEADER GROUPS (Preserved for screens > 768px)
+            ======================================================== */}
+        <div className="desktop-header-bar">
+          {/* Group 1: Match & Round Information */}
         <div className="toolbar-group match-info-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div>
             <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'block' }}>الجولة</span>
@@ -453,8 +529,20 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
           )}
         </div>
 
-        {/* Group 4: Exit Control (Separate & Isolated) */}
-        <div className="toolbar-group exit-controls-group" style={{ display: 'flex', alignItems: 'center' }}>
+        {/* Group 4: Exit & Fullscreen Controls */}
+        <div className="toolbar-group exit-controls-group" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onToggleFullscreen}
+              style={{ padding: '0.32rem 0.55rem', fontSize: '0.75rem' }}
+              title={isFullscreen ? 'تصغير الشاشة' : 'ملء الشاشة'}
+            >
+              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+          )}
+
           {onExitGame && (
             <button
               className="btn btn-secondary"
@@ -474,6 +562,113 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
           )}
         </div>
       </div>
+    </div>
+
+      {/* Mobile Tools & Settings Popover */}
+      {isMobileMenuOpen && (
+        <div
+          className="mobile-tools-backdrop"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          <div
+            className="mobile-tools-sheet"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mobile-tools-top">
+              <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--gold-primary)' }}>
+                أدوات وقائمة الماتش ⚙️
+              </span>
+              <button
+                type="button"
+                className="btn-icon-close"
+                onClick={() => setIsMobileMenuOpen(false)}
+                title="إغلاق"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mobile-tools-actions">
+              {onOpenSoundboard && (
+                <button
+                  type="button"
+                  className="mobile-tool-btn"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onOpenSoundboard();
+                  }}
+                >
+                  <Volume2 size={18} color="var(--gold-primary)" />
+                  <span>أصوات القهوة 🎙️</span>
+                </button>
+              )}
+
+              {onOpenSoundSettings && (
+                <button
+                  type="button"
+                  className="mobile-tool-btn"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onOpenSoundSettings();
+                  }}
+                >
+                  <Sliders size={18} color="var(--gold-primary)" />
+                  <span>إعدادات المؤثرات 🎧</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="mobile-tool-btn"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsHistoryOpen(true);
+                }}
+              >
+                <History size={18} color="var(--gold-primary)" />
+                <span>سجل الجولات والنقاط 📜</span>
+              </button>
+
+              {match.mode === GameMode.Quadruple && onRequestTeammateStart && !isMyTurn && (
+                <button
+                  type="button"
+                  className="mobile-tool-btn"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onRequestTeammateStart();
+                  }}
+                >
+                  <Hand size={18} color="var(--gold-primary)" />
+                  <span>طلب بداية الجولة من الزميل ✋</span>
+                </button>
+              )}
+
+              {onExitGame && (
+                <button
+                  type="button"
+                  className="mobile-tool-btn danger"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsExitModalOpen(true);
+                  }}
+                >
+                  <LogOut size={18} color="#f87171" />
+                  <span>مغادرة الماتش والانسحاب 🚪</span>
+                </button>
+              )}
+            </div>
+
+            {roomCode && (
+              <div className="mobile-voice-wrapper">
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>
+                  المحادثة الصوتية المباشرة:
+                </span>
+                <VoiceChatControls roomCode={roomCode} compact={false} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Virtual Table Canvas with Opponents on Perimeters */}
       <div

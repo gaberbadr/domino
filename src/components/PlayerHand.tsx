@@ -136,6 +136,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
           </span>
 
           <span
+            className="reorder-tip-text"
             style={{
               fontSize: '0.72rem',
               color: 'var(--text-muted)',
