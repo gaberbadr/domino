@@ -1,5 +1,5 @@
 export const STRINGS = {
-  appTitle: "دومينو مصرية",
+  appTitle: "دومينو",
   appSubtitle: "اللعبة الشعبية الأصيلة.. العب مع صحابك أونلاين على القهوة",
   startPlaying: "ابدأ اللعب",
   createRoom: "إنشاء أوضة",
