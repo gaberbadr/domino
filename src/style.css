@@ -102,6 +102,15 @@ body {
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+/* Responsive Navbar Utilities */
+.navbar-online-badge .online-text-short {
+  display: none;
+}
+.google-btn-short {
+  display: none;
 }
 
 /* Global Navbars & Headers */
@@ -1032,6 +1041,122 @@ table tbody tr:hover {
 
 /* Mobile Portrait Phones (<= 600px, e.g. iPhone 12 at 390px) */
 @media (max-width: 600px) {
+  /* Symmetrical balanced mobile container */
+  .container {
+    padding: 0 0.85rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Responsive Navbar on Mobile Portrait: zero overflow, perfectly balanced */
+  .navbar .container {
+    padding: 0 0.65rem !important;
+    gap: 0.35rem !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
+  }
+
+  .navbar-brand-subtitle {
+    display: none !important;
+  }
+
+  .navbar-online-badge {
+    padding: 0.2rem 0.5rem !important;
+    font-size: 0.74rem !important;
+  }
+
+  .navbar-online-badge .online-text-long {
+    display: none !important;
+  }
+
+  .navbar-online-badge .online-text-short {
+    display: inline !important;
+  }
+
+  .google-btn-full {
+    display: none !important;
+  }
+
+  .google-btn-short {
+    display: inline !important;
+  }
+
+  .btn-google {
+    padding: 0.4rem 0.75rem !important;
+    font-size: 0.82rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .navbar-user-card {
+    padding: 0.25rem 0.5rem !important;
+    max-width: 130px !important;
+  }
+
+  .navbar-user-name {
+    max-width: 65px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 0.8rem !important;
+  }
+
+  .admin-btn-label {
+    display: none !important;
+  }
+
+  /* Home Page Mobile Portrait: Natural width filling, centered content, zero horizontal gaps */
+  .home-hero-section {
+    padding: 2rem 0 1.5rem !important;
+  }
+
+  .home-hero-pill {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    white-space: normal !important;
+    text-align: center !important;
+    line-height: 1.4 !important;
+    font-size: 0.8rem !important;
+    padding: 0.35rem 0.75rem !important;
+  }
+
+  .home-hero-title {
+    font-size: clamp(1.6rem, 5.5vw, 2.2rem) !important;
+    line-height: 1.28 !important;
+    margin-bottom: 0.85rem !important;
+  }
+
+  .home-hero-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    max-width: 320px !important;
+    margin: 0 auto !important;
+    gap: 0.65rem !important;
+  }
+
+  .home-hero-actions .btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 0.75rem 1.25rem !important;
+    font-size: 0.98rem !important;
+  }
+
+  .home-modes-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  .home-rooms-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  .home-rooms-filter {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+
   .game-table-container {
     margin: 0.15rem 0.25rem !important;
     border-radius: 0.85rem !important;

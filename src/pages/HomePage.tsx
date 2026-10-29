@@ -56,61 +56,77 @@ export const HomePage: React.FC<HomePageProps> = ({
     <div style={{ minHeight: 'calc(100vh - 70px)', display: 'flex', flexDirection: 'column' }}>
       {/* Hero Section */}
       <section
+        className="home-hero-section"
         style={{
           background: 'linear-gradient(180deg, rgba(39, 23, 12, 0.85) 0%, rgba(20, 17, 15, 1) 100%)',
-          padding: '3rem 0 2rem',
+          padding: '2.5rem 0 2rem',
           borderBottom: '1px solid rgba(229, 231, 235, 0.1)',
-          textAlign: 'center'
+          textAlign: 'center',
+          width: '100%',
+          overflow: 'hidden'
         }}
       >
         <div className="container" style={{ maxWidth: '900px' }}>
           <div
+            className="home-hero-pill"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              gap: '0.45rem',
               background: 'rgba(111, 71, 42, 0.25)',
               border: '1px solid rgba(128, 83, 49, 0.5)',
-              padding: '0.4rem 1rem',
+              padding: '0.35rem 0.85rem',
               borderRadius: '9999px',
               color: '#e2ba9b',
-              fontSize: '0.9rem',
+              fontSize: '0.88rem',
               fontWeight: 700,
-              marginBottom: '1.25rem'
+              marginBottom: '1.25rem',
+              maxWidth: '100%',
+              boxSizing: 'border-box'
             }}
           >
-            <Sparkles size={16} />
+            <Sparkles size={16} style={{ flexShrink: 0 }} />
             <span>🇪🇬 قعدة الدومينو المصرية الأصيلة في أي وقت ومن أي مكان</span>
           </div>
 
-          <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3.25rem)', fontWeight: 900, color: 'var(--text-main)', lineHeight: 1.2, marginBottom: '1rem' }}>
+          <h2
+            className="home-hero-title"
+            style={{
+              fontSize: 'clamp(1.75rem, 5vw, 3.25rem)',
+              fontWeight: 900,
+              color: 'var(--text-main)',
+              lineHeight: 1.25,
+              marginBottom: '1rem',
+              wordBreak: 'break-word',
+              maxWidth: '100%'
+            }}
+          >
             العب دومينو على أصولها مع صحابك لايف
           </h2>
 
-
           {/* Main Action Buttons */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
+          <div className="home-hero-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center' }}>
             <button
               className="btn btn-primary"
-              style={{ padding: '0.9rem 2rem', fontSize: '1.1rem' }}
+              style={{ padding: '0.85rem 1.85rem', fontSize: '1.05rem' }}
               onClick={() => {
                 if (!user) onLoginClick();
                 else onCreateRoomClick();
               }}
             >
-              <PlusCircle size={22} />
+              <PlusCircle size={20} />
               <span>{STRINGS.createRoom}</span>
             </button>
 
             <button
               className="btn btn-secondary"
-              style={{ padding: '0.9rem 1.75rem', fontSize: '1.1rem' }}
+              style={{ padding: '0.85rem 1.65rem', fontSize: '1.05rem' }}
               onClick={() => {
                 if (!user) onLoginClick();
                 else onJoinPrivateClick();
               }}
             >
-              <KeyRound size={20} color="var(--platinum-silver)" />
+              <KeyRound size={18} color="var(--platinum-silver)" />
               <span>{STRINGS.joinPrivateRoom}</span>
             </button>
           </div>
@@ -118,9 +134,9 @@ export const HomePage: React.FC<HomePageProps> = ({
       </section>
 
       {/* Modes Overview Cards */}
-      <section style={{ padding: '2.5rem 0' }}>
+      <section style={{ padding: '2rem 0', width: '100%', overflow: 'hidden' }}>
         <div className="container">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+          <div className="home-modes-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '1.25rem' }}>
             {/* 1v1 Individual Card */}
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -167,9 +183,9 @@ export const HomePage: React.FC<HomePageProps> = ({
       </section>
 
       {/* Public Rooms Section */}
-      <section style={{ padding: '1rem 0 3.5rem', flex: 1 }}>
+      <section style={{ padding: '1rem 0 3.5rem', flex: 1, width: '100%', overflow: 'hidden' }}>
         <div className="container">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <Users size={22} color="var(--platinum-silver)" />
               <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
@@ -177,38 +193,38 @@ export const HomePage: React.FC<HomePageProps> = ({
               </h3>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div className="home-rooms-filter" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
               <button
                 className={`btn ${selectedModeFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
                 onClick={() => setSelectedModeFilter('all')}
               >
                 الكل
               </button>
               <button
                 className={`btn ${selectedModeFilter === GameMode.Individual ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
                 onClick={() => setSelectedModeFilter(GameMode.Individual)}
               >
                 فردي
               </button>
               <button
                 className={`btn ${selectedModeFilter === GameMode.Triple ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
                 onClick={() => setSelectedModeFilter(GameMode.Triple)}
               >
                 ثلاثي
               </button>
               <button
                 className={`btn ${selectedModeFilter === GameMode.Quadruple ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
                 onClick={() => setSelectedModeFilter(GameMode.Quadruple)}
               >
                 رباعي
               </button>
 
-              <button className="btn btn-secondary" onClick={fetchRooms} style={{ padding: '0.4rem 0.6rem' }} title="تحديث">
-                <RefreshCw size={16} className={isLoadingRooms ? 'animate-spin' : ''} />
+              <button className="btn btn-secondary" onClick={fetchRooms} style={{ padding: '0.35rem 0.55rem' }} title="تحديث">
+                <RefreshCw size={15} className={isLoadingRooms ? 'animate-spin' : ''} />
               </button>
             </div>
           </div>
@@ -260,7 +276,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+            <div className="home-rooms-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: '1rem' }}>
               {filteredRooms.map((room) => {
                 const isFull = room.currentPlayersCount >= room.maxPlayers;
                 return (
