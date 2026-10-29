@@ -22,6 +22,7 @@ export interface EndpointDropZone {
   y: number;
   width: number;
   height: number;
+  direction?: 'EAST' | 'WEST' | 'NORTH' | 'SOUTH';
 }
 
 export interface BoardLayoutResult {
@@ -50,11 +51,14 @@ export interface BoardLayoutInput {
 }
 
 /**
- * Calculates a continuous, realistic 2D serpentine domino board layout.
- * Anchors the first played tile (root) at the center, expanding Right arm
- * towards the East and Left arm towards the West. When an arm reaches the
- * turn limit, it creates a physical corner turn into the adjacent row
- * (Right arm snakes South; Left arm snakes North).
+ * Calculates a continuous, mathematically aligned 2D serpentine domino board layout.
+ * Anchors the first played tile (root) at (0, 0), expanding the Right arm towards
+ * the East (snaking South into subsequent rows) and the Left arm towards the West
+ * (snaking North into subsequent rows).
+ *
+ * All non-doubles and transverse doubles are centered on the row centerline.
+ * Turns connect flush at 90 degrees with no floating tiles or row collisions.
+ * Endpoint indicators are strictly anchored OUTSIDE the exposed ends so they never cover pips.
  */
 export function calculateBoardLayout({
   chain,
@@ -84,29 +88,35 @@ export function calculateBoardLayout({
     rootIdx = Math.floor(chain.length / 2);
   }
 
-  // Half-tile unit dimension S in pixels (Full tile: 2S x S = 72px x 36px)
+  // Unit half-tile dimension S in pixels (Full tile: 2S x S = 72px x 36px)
   const S = 36;
   const GAP = 2;
-  const ROW_PITCH = 82; // Distance between row centerlines (allows doubles and clear felt gap)
+  const ROW_PITCH = 78; // Centerline distance between adjacent rows (allows 72px doubles with clean clearance)
 
-  // Calculate dynamic horizontal turn limit based on available board width
-  const effectiveWidth = Math.max(340, boardWidth || 800);
-  const maxTilesInRow = Math.max(4, Math.min(8, Math.floor((effectiveWidth - 120) / (2 * S + GAP))));
-  const armLimit = Math.max(2, Math.floor(maxTilesInRow / 2));
+  // Calculate dynamic turn limits based on available viewport width
+  const effectiveWidth = Math.max(280, boardWidth || 800);
+  const usableWidth = effectiveWidth - 90;
+  const tileRunLength = 2 * S + GAP; // 74px
+  const maxTilesInRow = Math.max(3, Math.min(7, Math.floor(usableWidth / tileRunLength)));
+  const armLimit = Math.max(1, Math.floor((maxTilesInRow - 1) / 2));
 
   const placedTiles: PlacedLayoutTile[] = [];
+
+  // Track placement directions for accurate endpoint anchor calculation
+  let rightArmLastDir: 'EAST' | 'WEST' | 'SOUTH' = 'EAST';
+  let leftArmLastDir: 'WEST' | 'EAST' | 'NORTH' = 'WEST';
 
   // 1. Place Root Tile at (0, 0)
   const root = chain[rootIdx];
   const isRootDouble = root.leftPip === root.rightPip;
 
-  let rightConnX = 0;
-  let rightConnY = 0;
-  let leftConnX = 0;
-  let leftConnY = 0;
+  let rightCurrX = 0;
+  let rightCurrY = 0;
+  let leftCurrX = 0;
+  let leftCurrY = 0;
 
   if (isRootDouble) {
-    // Root double is placed vertically (transverse)
+    // Root double is placed vertically (transverse across Row 0)
     const w = S;
     const h = 2 * S;
     const x = -S / 2;
@@ -126,12 +136,12 @@ export function calculateBoardLayout({
       isRightOpenEnd: rootIdx === chain.length - 1
     });
 
-    rightConnX = S / 2 + GAP;
-    rightConnY = 0;
-    leftConnX = -S / 2 - GAP;
-    leftConnY = 0;
+    rightCurrX = S / 2;
+    rightCurrY = 0;
+    leftCurrX = -S / 2;
+    leftCurrY = 0;
   } else {
-    // Non-double root is placed horizontally
+    // Non-double root is placed horizontally along Row 0
     const w = 2 * S;
     const h = S;
     const x = -S;
@@ -151,15 +161,13 @@ export function calculateBoardLayout({
       isRightOpenEnd: rootIdx === chain.length - 1
     });
 
-    rightConnX = S + GAP;
-    rightConnY = 0;
-    leftConnX = -S - GAP;
-    leftConnY = 0;
+    rightCurrX = S;
+    rightCurrY = 0;
+    leftCurrX = -S;
+    leftCurrY = 0;
   }
 
   // 2. Expand Right Arm (indices rootIdx + 1 to chain.length - 1)
-  let rightCurrX = rightConnX;
-  let rightCurrY = rightConnY;
   let rightDir: 'EAST' | 'WEST' = 'EAST';
   let rightSteps = 0;
   let rightRow = 0;
@@ -169,15 +177,15 @@ export function calculateBoardLayout({
     const isDouble = tile.leftPip === tile.rightPip;
     const isLastTile = i === chain.length - 1;
 
-    // Check if we need to turn
-    const shouldTurnEast = rightDir === 'EAST' && rightSteps >= armLimit;
-    const shouldTurnWest = rightDir === 'WEST' && rightSteps >= armLimit + 1;
+    // Check if turn should occur (only non-doubles turn to preserve transverse double symmetry)
+    const shouldTurnEast = rightDir === 'EAST' && rightSteps >= armLimit && !isDouble;
+    const shouldTurnWest = rightDir === 'WEST' && rightSteps >= armLimit + 1 && !isDouble;
 
     if (shouldTurnEast) {
-      // Corner turn pointing SOUTH
+      // 90-degree corner turn pointing SOUTH
       const w = S;
       const h = 2 * S;
-      const x = rightCurrX;
+      const x = rightCurrX + GAP;
       const y = rightCurrY - S / 2;
 
       placedTiles.push({
@@ -189,7 +197,7 @@ export function calculateBoardLayout({
         orientation: 'vertical',
         displayEnd1: tile.leftPip,
         displayEnd2: tile.rightPip,
-        isDouble,
+        isDouble: false,
         orderIndex: tile.orderIndex,
         isLeftOpenEnd: false,
         isRightOpenEnd: isLastTile
@@ -198,13 +206,14 @@ export function calculateBoardLayout({
       rightRow++;
       rightDir = 'WEST';
       rightSteps = 0;
-      rightCurrX = x;
+      rightArmLastDir = 'SOUTH';
+      rightCurrX = x + S / 2;
       rightCurrY = y + ROW_PITCH;
     } else if (shouldTurnWest) {
-      // Corner turn pointing SOUTH on left edge
+      // 90-degree corner turn pointing SOUTH on Left edge
       const w = S;
       const h = 2 * S;
-      const x = rightCurrX - S;
+      const x = rightCurrX - GAP - S;
       const y = rightCurrY - S / 2;
 
       placedTiles.push({
@@ -216,7 +225,7 @@ export function calculateBoardLayout({
         orientation: 'vertical',
         displayEnd1: tile.leftPip,
         displayEnd2: tile.rightPip,
-        isDouble,
+        isDouble: false,
         orderIndex: tile.orderIndex,
         isLeftOpenEnd: false,
         isRightOpenEnd: isLastTile
@@ -225,15 +234,18 @@ export function calculateBoardLayout({
       rightRow++;
       rightDir = 'EAST';
       rightSteps = 0;
-      rightCurrX = x + S + GAP;
+      rightArmLastDir = 'SOUTH';
+      rightCurrX = x + S / 2;
       rightCurrY = y + ROW_PITCH;
     } else {
       // In-line tile
       if (rightDir === 'EAST') {
+        rightArmLastDir = 'EAST';
         if (isDouble) {
+          // Transverse vertical double centered on Row centerline
           const w = S;
           const h = 2 * S;
-          const x = rightCurrX;
+          const x = rightCurrX + GAP;
           const y = rightCurrY - S;
           placedTiles.push({
             tileId: tile.tileId,
@@ -249,11 +261,13 @@ export function calculateBoardLayout({
             isLeftOpenEnd: false,
             isRightOpenEnd: isLastTile
           });
-          rightCurrX += S + GAP;
+          rightCurrX = x + w;
+          rightSteps++;
         } else {
+          // Horizontal in-line non-double
           const w = 2 * S;
           const h = S;
-          const x = rightCurrX;
+          const x = rightCurrX + GAP;
           const y = rightCurrY - S / 2;
           placedTiles.push({
             tileId: tile.tileId,
@@ -269,15 +283,16 @@ export function calculateBoardLayout({
             isLeftOpenEnd: false,
             isRightOpenEnd: isLastTile
           });
-          rightCurrX += 2 * S + GAP;
+          rightCurrX = x + w;
           rightSteps++;
         }
       } else {
-        // WEST
+        // In-line WEST
+        rightArmLastDir = 'WEST';
         if (isDouble) {
           const w = S;
           const h = 2 * S;
-          const x = rightCurrX - S;
+          const x = rightCurrX - GAP - S;
           const y = rightCurrY - S;
           placedTiles.push({
             tileId: tile.tileId,
@@ -293,13 +308,14 @@ export function calculateBoardLayout({
             isLeftOpenEnd: false,
             isRightOpenEnd: isLastTile
           });
-          rightCurrX -= S + GAP;
+          rightCurrX = x;
+          rightSteps++;
         } else {
           const w = 2 * S;
           const h = S;
-          const x = rightCurrX - 2 * S;
+          const x = rightCurrX - GAP - 2 * S;
           const y = rightCurrY - S / 2;
-          // Moving west: leftPip is on right touching previous tile, rightPip is on left facing forward
+          // Moving west: leftPip connects to previous tile on right, rightPip faces forward on left
           placedTiles.push({
             tileId: tile.tileId,
             x,
@@ -314,7 +330,7 @@ export function calculateBoardLayout({
             isLeftOpenEnd: false,
             isRightOpenEnd: isLastTile
           });
-          rightCurrX -= 2 * S + GAP;
+          rightCurrX = x;
           rightSteps++;
         }
       }
@@ -322,8 +338,6 @@ export function calculateBoardLayout({
   }
 
   // 3. Expand Left Arm (indices rootIdx - 1 down to 0)
-  let leftCurrX = leftConnX;
-  let leftCurrY = leftConnY;
   let leftDir: 'WEST' | 'EAST' = 'WEST';
   let leftSteps = 0;
   let leftRow = 0;
@@ -333,44 +347,17 @@ export function calculateBoardLayout({
     const isDouble = tile.leftPip === tile.rightPip;
     const isFirstTile = i === 0;
 
-    const shouldTurnWest = leftDir === 'WEST' && leftSteps >= armLimit;
-    const shouldTurnEast = leftDir === 'EAST' && leftSteps >= armLimit + 1;
+    const shouldTurnWest = leftDir === 'WEST' && leftSteps >= armLimit && !isDouble;
+    const shouldTurnEast = leftDir === 'EAST' && leftSteps >= armLimit + 1 && !isDouble;
 
     if (shouldTurnWest) {
-      // Corner turn pointing NORTH
+      // 90-degree corner turn pointing NORTH
       const w = S;
       const h = 2 * S;
-      const x = leftCurrX - S;
+      const x = leftCurrX - GAP - S;
       const y = leftCurrY - 1.5 * S;
 
-      placedTiles.push({
-        tileId: tile.tileId,
-        x,
-        y,
-        width: w,
-        height: h,
-        orientation: 'vertical',
-        displayEnd1: tile.leftPip, // top (exiting North)
-        displayEnd2: tile.rightPip, // bottom (entering from South)
-        isDouble,
-        orderIndex: tile.orderIndex,
-        isLeftOpenEnd: isFirstTile,
-        isRightOpenEnd: false
-      });
-
-      leftRow--;
-      leftDir = 'EAST';
-      leftSteps = 0;
-      leftCurrX = x + S + GAP;
-      leftCurrY = y - ROW_PITCH + S;
-    } else if (shouldTurnEast) {
-      // Corner turn pointing NORTH on right edge
-      const w = S;
-      const h = 2 * S;
-      const x = leftCurrX;
-      const y = leftCurrY - 1.5 * S;
-
-      placedTiles.push({
+      placedTiles.unshift({
         tileId: tile.tileId,
         x,
         y,
@@ -379,7 +366,35 @@ export function calculateBoardLayout({
         orientation: 'vertical',
         displayEnd1: tile.leftPip,
         displayEnd2: tile.rightPip,
-        isDouble,
+        isDouble: false,
+        orderIndex: tile.orderIndex,
+        isLeftOpenEnd: isFirstTile,
+        isRightOpenEnd: false
+      });
+
+      leftRow--;
+      leftDir = 'EAST';
+      leftSteps = 0;
+      leftArmLastDir = 'NORTH';
+      leftCurrX = x + S / 2;
+      leftCurrY = y - ROW_PITCH + 2 * S;
+    } else if (shouldTurnEast) {
+      // 90-degree corner turn pointing NORTH on Right edge
+      const w = S;
+      const h = 2 * S;
+      const x = leftCurrX + GAP;
+      const y = leftCurrY - 1.5 * S;
+
+      placedTiles.unshift({
+        tileId: tile.tileId,
+        x,
+        y,
+        width: w,
+        height: h,
+        orientation: 'vertical',
+        displayEnd1: tile.leftPip,
+        displayEnd2: tile.rightPip,
+        isDouble: false,
         orderIndex: tile.orderIndex,
         isLeftOpenEnd: isFirstTile,
         isRightOpenEnd: false
@@ -388,17 +403,19 @@ export function calculateBoardLayout({
       leftRow--;
       leftDir = 'WEST';
       leftSteps = 0;
-      leftCurrX = x - GAP;
-      leftCurrY = y - ROW_PITCH + S;
+      leftArmLastDir = 'NORTH';
+      leftCurrX = x + S / 2;
+      leftCurrY = y - ROW_PITCH + 2 * S;
     } else {
       // In-line tile for Left Arm
       if (leftDir === 'WEST') {
+        leftArmLastDir = 'WEST';
         if (isDouble) {
           const w = S;
           const h = 2 * S;
-          const x = leftCurrX - S;
+          const x = leftCurrX - GAP - S;
           const y = leftCurrY - S;
-          placedTiles.push({
+          placedTiles.unshift({
             tileId: tile.tileId,
             x,
             y,
@@ -412,14 +429,15 @@ export function calculateBoardLayout({
             isLeftOpenEnd: isFirstTile,
             isRightOpenEnd: false
           });
-          leftCurrX -= S + GAP;
+          leftCurrX = x;
+          leftSteps++;
         } else {
           const w = 2 * S;
           const h = S;
-          const x = leftCurrX - 2 * S;
+          const x = leftCurrX - GAP - 2 * S;
           const y = leftCurrY - S / 2;
-          // Moving west: rightPip touches previous tile on right, leftPip is on left facing forward
-          placedTiles.push({
+          // Moving west on left arm: rightPip connects to previous tile on right, leftPip faces forward on left
+          placedTiles.unshift({
             tileId: tile.tileId,
             x,
             y,
@@ -433,17 +451,18 @@ export function calculateBoardLayout({
             isLeftOpenEnd: isFirstTile,
             isRightOpenEnd: false
           });
-          leftCurrX -= 2 * S + GAP;
+          leftCurrX = x;
           leftSteps++;
         }
       } else {
-        // EAST
+        // In-line EAST on Left Arm
+        leftArmLastDir = 'EAST';
         if (isDouble) {
           const w = S;
           const h = 2 * S;
-          const x = leftCurrX;
+          const x = leftCurrX + GAP;
           const y = leftCurrY - S;
-          placedTiles.push({
+          placedTiles.unshift({
             tileId: tile.tileId,
             x,
             y,
@@ -457,14 +476,15 @@ export function calculateBoardLayout({
             isLeftOpenEnd: isFirstTile,
             isRightOpenEnd: false
           });
-          leftCurrX += S + GAP;
+          leftCurrX = x + w;
+          leftSteps++;
         } else {
           const w = 2 * S;
           const h = S;
-          const x = leftCurrX;
+          const x = leftCurrX + GAP;
           const y = leftCurrY - S / 2;
           // Moving east: leftPip is on right facing forward, rightPip touches previous tile on left
-          placedTiles.push({
+          placedTiles.unshift({
             tileId: tile.tileId,
             x,
             y,
@@ -478,43 +498,95 @@ export function calculateBoardLayout({
             isLeftOpenEnd: isFirstTile,
             isRightOpenEnd: false
           });
-          leftCurrX += 2 * S + GAP;
+          leftCurrX = x + w;
           leftSteps++;
         }
       }
     }
   }
 
-  // 4. Calculate Endpoint Drop Zones
+  // 4. Calculate Endpoint Drop Zones (Strictly anchored outside the exposed end with 8px clearance)
+  const dzWidth = 32;
+  const dzHeight = 32;
+  const clearance = 8;
+
   let rightDropZone: EndpointDropZone | null = null;
-  if (openRight !== null) {
-    const dzWidth = S * 1.25;
-    const dzHeight = S;
-    const dzX = rightDir === 'EAST' ? rightCurrX + 4 : rightCurrX - dzWidth - 4;
-    const dzY = rightCurrY - dzHeight / 2;
+  if (openRight !== null && placedTiles.length > 0) {
+    const lastTile = placedTiles[placedTiles.length - 1];
+    let dzX = 0;
+    let dzY = 0;
+    let dir: 'EAST' | 'WEST' | 'SOUTH' | 'NORTH' = 'EAST';
+
+    if (chain.length === 1) {
+      // Single root tile: Right end is outside its right edge
+      dzX = lastTile.x + lastTile.width + clearance;
+      dzY = lastTile.y + lastTile.height / 2 - dzHeight / 2;
+      dir = 'EAST';
+    } else if (rightArmLastDir === 'SOUTH') {
+      // Exposed face is bottom edge of vertical corner tile
+      dzX = lastTile.x + lastTile.width / 2 - dzWidth / 2;
+      dzY = lastTile.y + lastTile.height + clearance;
+      dir = 'SOUTH';
+    } else if (rightArmLastDir === 'WEST') {
+      // Exposed face is left edge
+      dzX = lastTile.x - dzWidth - clearance;
+      dzY = lastTile.y + lastTile.height / 2 - dzHeight / 2;
+      dir = 'WEST';
+    } else {
+      // Exposed face is right edge (EAST)
+      dzX = lastTile.x + lastTile.width + clearance;
+      dzY = lastTile.y + lastTile.height / 2 - dzHeight / 2;
+      dir = 'EAST';
+    }
+
     rightDropZone = {
       end: BoardEnd.Right,
       openPip: openRight,
       x: dzX,
       y: dzY,
       width: dzWidth,
-      height: dzHeight
+      height: dzHeight,
+      direction: dir
     };
   }
 
   let leftDropZone: EndpointDropZone | null = null;
-  if (openLeft !== null) {
-    const dzWidth = S * 1.25;
-    const dzHeight = S;
-    const dzX = leftDir === 'WEST' ? leftCurrX - dzWidth - 4 : leftCurrX + 4;
-    const dzY = leftCurrY - dzHeight / 2;
+  if (openLeft !== null && placedTiles.length > 0) {
+    const firstTile = placedTiles[0];
+    let dzX = 0;
+    let dzY = 0;
+    let dir: 'EAST' | 'WEST' | 'SOUTH' | 'NORTH' = 'WEST';
+
+    if (chain.length === 1) {
+      // Single root tile: Left end is outside its left edge
+      dzX = firstTile.x - dzWidth - clearance;
+      dzY = firstTile.y + firstTile.height / 2 - dzHeight / 2;
+      dir = 'WEST';
+    } else if (leftArmLastDir === 'NORTH') {
+      // Exposed face is top edge of vertical corner tile
+      dzX = firstTile.x + firstTile.width / 2 - dzWidth / 2;
+      dzY = firstTile.y - dzHeight - clearance;
+      dir = 'NORTH';
+    } else if (leftArmLastDir === 'EAST') {
+      // Exposed face is right edge
+      dzX = firstTile.x + firstTile.width + clearance;
+      dzY = firstTile.y + firstTile.height / 2 - dzHeight / 2;
+      dir = 'EAST';
+    } else {
+      // Exposed face is left edge (WEST)
+      dzX = firstTile.x - dzWidth - clearance;
+      dzY = firstTile.y + firstTile.height / 2 - dzHeight / 2;
+      dir = 'WEST';
+    }
+
     leftDropZone = {
       end: BoardEnd.Left,
       openPip: openLeft,
       x: dzX,
       y: dzY,
       width: dzWidth,
-      height: dzHeight
+      height: dzHeight,
+      direction: dir
     };
   }
 
@@ -545,29 +617,32 @@ export function calculateBoardLayout({
     if (leftDropZone.y + leftDropZone.height > maxY) maxY = leftDropZone.y + leftDropZone.height;
   }
 
-  // Add padding
-  const pad = 24;
+  // Padding
+  const pad = 16;
   minX -= pad;
   maxX += pad;
   minY -= pad;
   maxY += pad;
 
-  const totalWidth = Math.max(100, maxX - minX);
-  const totalHeight = Math.max(100, maxY - minY);
+  const totalWidth = Math.max(80, maxX - minX);
+  const totalHeight = Math.max(60, maxY - minY);
 
   // 6. Dynamic Scaling to fit comfortably inside visible board area
-  const availW = Math.max(280, boardWidth - 30);
-  const availH = Math.max(240, boardHeight - 30);
+  const availW = Math.max(240, boardWidth - 24);
+  const availH = Math.max(200, boardHeight - 24);
 
   const scaleX = availW / totalWidth;
   const scaleY = availH / totalHeight;
   const fitScale = Math.min(1.0, scaleX, scaleY);
-  // Ensure scale doesn't shrink below readable threshold (0.58)
+  // Ensure readable threshold while keeping viewport contained
   const scale = Math.max(0.58, fitScale);
 
   // Center within board area
-  const offsetX = (boardWidth - totalWidth * scale) / 2 - minX * scale;
-  const offsetY = (boardHeight - totalHeight * scale) / 2 - minY * scale;
+  // Since children in GameBoard are positioned relative to minX and minY (x - minX, y - minY),
+  // the local bounding box begins at (0, 0) and has visual dimensions (totalWidth * scale, totalHeight * scale).
+  // Placing the layout container at (boardWidth - totalWidth * scale) / 2 centers the board perfectly.
+  const offsetX = Math.round((boardWidth - totalWidth * scale) / 2);
+  const offsetY = Math.round((boardHeight - totalHeight * scale) / 2);
 
   return {
     tiles: placedTiles,

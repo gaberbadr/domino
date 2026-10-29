@@ -166,4 +166,65 @@ assert(longResult.leftDropZone !== null && longResult.leftDropZone.openPip === 1
 assert(longResult.rightDropZone !== null && longResult.rightDropZone.openPip === 1, 'Open right drop zone is 1');
 console.log('✓ Endpoints match openLeft and openRight.\n');
 
-console.log('=== ALL 7 TESTS PASSED SUCCESSFULLY! ===');
+// 8. Strict Endpoint Non-Overlap Verification
+console.log('Test 8: Strict endpoint marker non-overlap verification...');
+const allPlaced = longResult.tiles;
+for (const tile of allPlaced) {
+  if (longResult.leftDropZone) {
+    const ldz = longResult.leftDropZone;
+    const overlapX = tile.x < ldz.x + ldz.width && tile.x + tile.width > ldz.x;
+    const overlapY = tile.y < ldz.y + ldz.height && tile.y + tile.height > ldz.y;
+    assert(!(overlapX && overlapY), `Left drop zone must NOT overlap tile ${tile.tileId}!`);
+  }
+  if (longResult.rightDropZone) {
+    const rdz = longResult.rightDropZone;
+    const overlapX = tile.x < rdz.x + rdz.width && tile.x + tile.width > rdz.x;
+    const overlapY = tile.y < rdz.y + rdz.height && tile.y + tile.height > rdz.y;
+    assert(!(overlapX && overlapY), `Right drop zone must NOT overlap tile ${tile.tileId}!`);
+  }
+}
+console.log('✓ Both endpoint indicators are strictly outside all domino tiles with 0 overlap.\n');
+
+// 9. Viewport Centering Verification
+console.log('Test 9: Centering balance in available board area...');
+const centerResult = calculateBoardLayout({
+  chain: longChain,
+  openLeft: 1,
+  openRight: 1,
+  boardWidth: 1000,
+  boardHeight: 600
+});
+const renderedW = centerResult.boundingBox.width * centerResult.scale;
+const renderedH = centerResult.boundingBox.height * centerResult.scale;
+const expectedLeft = Math.round((1000 - renderedW) / 2);
+const expectedTop = Math.round((600 - renderedH) / 2);
+assert(Math.abs(centerResult.offsetX - expectedLeft) <= 1, 'Board layout X is centered horizontally');
+assert(Math.abs(centerResult.offsetY - expectedTop) <= 1, 'Board layout Y is centered vertically');
+console.log(`✓ Board is centered at X=${centerResult.offsetX}px (expected ${expectedLeft}px) and Y=${centerResult.offsetY}px.\n`);
+
+// 10. Specific Viewport Matrix Tests (Desktop 1440x900, Tablet 768x1024, Mobile Portrait 390x844, Mobile Landscape 844x390)
+console.log('Test 10: Testing target viewports (1440x900, 768x1024, 390x844, 844x390)...');
+const viewports = [
+  { name: 'Desktop (1440x900)', width: 1300, height: 650 },
+  { name: 'Tablet (768x1024)', width: 660, height: 750 },
+  { name: 'Mobile Portrait (390x844)', width: 360, height: 500 },
+  { name: 'Mobile Landscape (844x390)', width: 720, height: 260 }
+];
+
+for (const vp of viewports) {
+  const res = calculateBoardLayout({
+    chain: longChain,
+    openLeft: 1,
+    openRight: 1,
+    boardWidth: vp.width,
+    boardHeight: vp.height
+  });
+  assert(res.tiles.length === 15, `${vp.name}: All 15 tiles placed`);
+  assert(res.scale >= 0.58 && res.scale <= 1.0, `${vp.name}: Scale (${res.scale.toFixed(2)}) is within valid range`);
+  assert(res.leftDropZone !== null && res.rightDropZone !== null, `${vp.name}: Both drop zones exist`);
+  console.log(`  ✓ ${vp.name}: scale=${res.scale.toFixed(2)}, totalW=${Math.round(res.boundingBox.width * res.scale)}px, totalH=${Math.round(res.boundingBox.height * res.scale)}px`);
+}
+console.log('✓ All 4 representative viewports verified successfully.\n');
+
+console.log('=== ALL 10 TESTS PASSED SUCCESSFULLY! ===');
+

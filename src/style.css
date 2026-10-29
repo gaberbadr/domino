@@ -445,104 +445,115 @@ body {
   100% { transform: scale(1); }
 }
 
-/* Board End Drop Zones */
-.board-end-drop-zone {
+/* ==========================================
+   ENDPOINT MARKERS (NON-OVERLAPPING EXTERNAL SATELLITES)
+   ========================================== */
+.endpoint-marker {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  border: 2px dashed rgba(212, 175, 55, 0.65);
-  background: rgba(212, 175, 55, 0.12);
-  box-shadow: 0 0 12px rgba(212, 175, 55, 0.25);
-  color: #fef08a;
-  font-weight: 800;
-  font-size: 0.72rem;
-  transition: all 0.2s ease;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  background: rgba(18, 14, 11, 0.75);
   cursor: pointer;
   user-select: none;
-  z-index: 10;
-  backdrop-filter: blur(4px);
+  z-index: 25;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
 }
 
-.board-end-drop-zone.left-zone {
-  border-color: rgba(96, 165, 250, 0.7);
-  background: rgba(59, 130, 246, 0.15);
-  color: #93c5fd;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+.endpoint-marker.left-end {
+  border-color: #38bdf8;
+  background: rgba(14, 165, 233, 0.22);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
 }
 
-.board-end-drop-zone.active-drop {
-  transform: scale(1.12);
-  border-color: #10b981 !important;
-  background: rgba(16, 185, 129, 0.35) !important;
-  box-shadow: 0 0 22px rgba(16, 185, 129, 0.9) !important;
-  color: #fff !important;
+.endpoint-marker.right-end {
+  border-color: #34d399;
+  background: rgba(16, 185, 129, 0.22);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.5);
+  color: #34d399;
 }
 
-.board-end-drop-zone.choice-active {
-  transform: scale(1.12);
-  border: 2px solid #10b981 !important;
-  background: rgba(16, 185, 129, 0.28) !important;
-  box-shadow: 0 0 24px rgba(16, 185, 129, 0.9) !important;
-  color: #fff !important;
-  animation: pulseChoice 1.6s infinite ease-in-out;
-  cursor: pointer;
-  z-index: 30;
+.endpoint-marker:hover,
+.endpoint-marker.active-drop {
+  transform: scale(1.18);
 }
 
-@keyframes pulseChoice {
-  0%, 100% { transform: scale(1.06); box-shadow: 0 0 16px rgba(16, 185, 129, 0.7); }
-  50% { transform: scale(1.18); box-shadow: 0 0 32px rgba(16, 185, 129, 1); }
+.endpoint-marker.left-end:hover,
+.endpoint-marker.left-end.active-drop {
+  background: rgba(14, 165, 233, 0.45);
+  border-color: #7dd3fc;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.9);
 }
 
-/* Endpoint Connection Beacon (subtle dock target without misleading textual labels) */
-.endpoint-beacon {
-  width: 14px;
-  height: 14px;
+.endpoint-marker.right-end:hover,
+.endpoint-marker.right-end.active-drop {
+  background: rgba(16, 185, 129, 0.45);
+  border-color: #6ee7b7;
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.9);
+}
+
+.endpoint-dock-dot {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: radial-gradient(circle, #fde047 30%, #ca8a04 100%);
-  border: 1.5px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 12px rgba(250, 204, 21, 0.85);
-  animation: beaconPulse 2.4s infinite ease-in-out;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  animation: dockPulse 2s infinite ease-in-out;
 }
 
-.left-zone .endpoint-beacon {
-  background: radial-gradient(circle, #93c5fd 30%, #2563eb 100%);
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.85);
-}
-
-@keyframes beaconPulse {
-  0%, 100% { transform: scale(0.9); opacity: 0.75; }
+@keyframes dockPulse {
+  0%, 100% { transform: scale(0.85); opacity: 0.75; }
   50% { transform: scale(1.25); opacity: 1; }
 }
 
-/* Clear Endpoint Action Badges for dual-endpoint choice */
-.endpoint-action-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.35rem 0.65rem;
-  border-radius: 9999px;
+/* Choice Active: Prominent button outside the tile */
+.endpoint-marker.choice-active {
+  border-radius: 9999px !important;
+  padding: 0.28rem 0.7rem !important;
+  width: auto !important;
+  height: 32px !important;
   font-weight: 800;
-  font-size: 0.82rem;
-  color: #ffffff;
-  background: #059669;
-  border: 1px solid #34d399;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  font-size: 0.8rem;
+  color: #ffffff !important;
+  animation: choicePulse 1.6s infinite ease-in-out;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+}
+
+.endpoint-marker.left-end.choice-active {
+  background: #0284c7 !important;
+  border-color: #7dd3fc !important;
+  box-shadow: 0 0 18px rgba(14, 165, 233, 0.85);
+}
+
+.endpoint-marker.right-end.choice-active {
+  background: #059669 !important;
+  border-color: #6ee7b7 !important;
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.85);
+}
+
+@keyframes choicePulse {
+  0%, 100% { transform: scale(1.02); }
+  50% { transform: scale(1.12); }
+}
+
+.choice-btn-text {
   white-space: nowrap;
+  letter-spacing: 0.2px;
 }
 
-.endpoint-action-badge.left {
-  background: #2563eb;
-  border-color: #60a5fa;
-}
-
+/* Open Tile Accents on Exposed Ends */
 .chain-tile-container.is-left-open {
-  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.45));
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.55));
 }
 
 .chain-tile-container.is-right-open {
-  filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.45));
+  filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.55));
 }
 
 
@@ -606,42 +617,6 @@ body {
   animation: pulseGlow 1s infinite alternate;
 }
 
-/* ==========================================
-   BOARD DROP ZONES (DRAG TO PLAY)
-   ========================================== */
-.board-end-drop-zone {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 68px;
-  height: 52px;
-  border-radius: 10px;
-  border: 2px dashed rgba(229, 231, 235, 0.45);
-  background: rgba(229, 231, 235, 0.08);
-  cursor: pointer;
-  transition: all 0.25s ease;
-  user-select: none;
-  flex-shrink: 0;
-}
-
-.board-end-drop-zone:hover,
-.board-end-drop-zone.active-drop {
-  border-color: #10b981;
-  background: rgba(16, 185, 129, 0.22);
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.7);
-  transform: scale(1.08);
-}
-
-.board-end-drop-zone .end-badge {
-  font-size: 0.78rem;
-  font-weight: 800;
-  color: #fcfaf6;
-  background: rgba(0, 0, 0, 0.65);
-  padding: 0.25rem 0.55rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
 /* Keyframes */
 @keyframes spin {
   from { transform: rotate(0deg); }
@@ -687,26 +662,134 @@ body {
 }
 
 /* ==========================================
-   LANDSCAPE & MOBILE RESPONSIVENESS
+   MOBILE & TABLET RESPONSIVENESS
    ========================================== */
-@media (max-height: 520px) and (orientation: landscape) {
+
+/* Tablets and small laptops (<= 1024px) */
+@media (max-width: 1024px) {
   .game-table-container {
-    margin: 0.2rem 0.4rem;
-    border-width: 2px;
+    margin: 0.35rem 0.5rem !important;
   }
   .game-table-header {
-    padding: 0.3rem 0.8rem !important;
+    padding: 0.35rem 0.75rem !important;
   }
-  .player-hand-container {
-    padding: 0.3rem 0.6rem 0.4rem !important;
+}
+
+/* Mobile Portrait (<= 600px) */
+@media (max-width: 600px) {
+  .game-table-container {
+    margin: 0.2rem 0.25rem !important;
+    border-radius: 0.85rem !important;
+    border-width: 2px !important;
   }
+
+  .game-table-header {
+    padding: 0.3rem 0.5rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .virtual-felt-area {
+    display: flex !important;
+    flex-direction: column !important;
+    position: relative !important;
+  }
+
+  /* Anchor bank neatly in top-right of the felt on mobile portrait so the felt gets 100% width */
+  .table-right-sidebar {
+    position: absolute !important;
+    top: 6px !important;
+    right: 6px !important;
+    padding-right: 0 !important;
+    z-index: 30 !important;
+    transform: scale(0.85);
+    transform-origin: top right;
+    pointer-events: auto;
+  }
+
+  .board-felt-canvas {
+    margin: 0.25rem !important;
+    border-radius: 0.75rem !important;
+  }
+
+  /* Scale normal hand tiles to fit 7 tiles comfortably across 360-390px screens */
   .domino-tile.vertical.size-normal {
-    width: 38px;
-    height: 76px;
+    width: 38px !important;
+    height: 76px !important;
   }
+
   .domino-tile.horizontal.size-normal {
-    width: 76px;
-    height: 38px;
+    width: 76px !important;
+    height: 38px !important;
+  }
+
+  .player-hand-container {
+    padding: 0.3rem 0.4rem 0.5rem !important;
+  }
+
+  .hand-tiles-row {
+    padding: 0.25rem 0.25rem 0.45rem !important;
+    gap: 0.35rem !important;
+  }
+}
+
+/* Very Narrow Mobile Screens (<= 400px, e.g. iPhone SE / 375px / 390px) */
+@media (max-width: 400px) {
+  .domino-tile.vertical.size-normal {
+    width: 35px !important;
+    height: 70px !important;
+  }
+
+  .domino-tile.horizontal.size-normal {
+    width: 70px !important;
+    height: 35px !important;
+  }
+
+  .hand-tiles-row {
+    gap: 0.25rem !important;
+  }
+
+  .table-right-sidebar {
+    transform: scale(0.75) !important;
+  }
+}
+
+/* Mobile Landscape (<= 520px height) */
+@media (max-height: 520px) and (orientation: landscape) {
+  .game-table-container {
+    margin: 0.15rem 0.35rem !important;
+    border-width: 2px !important;
+    border-radius: 0.75rem !important;
+  }
+
+  .game-table-header {
+    padding: 0.2rem 0.6rem !important;
+    gap: 0.4rem !important;
+  }
+
+  .player-hand-container {
+    padding: 0.2rem 0.5rem 0.3rem !important;
+  }
+
+  .domino-tile.vertical.size-normal {
+    width: 32px !important;
+    height: 64px !important;
+  }
+
+  .domino-tile.horizontal.size-normal {
+    width: 64px !important;
+    height: 32px !important;
+  }
+
+  .hand-tiles-row {
+    padding: 0.2rem 0.4rem !important;
+    gap: 0.3rem !important;
+  }
+
+  .table-right-sidebar {
+    transform: scale(0.8);
+    transform-origin: center right;
+    padding-right: 0.4rem !important;
+    gap: 0.4rem !important;
   }
 }
 

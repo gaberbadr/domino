@@ -405,7 +405,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
             position: 'relative',
             margin: '0.45rem',
             borderRadius: '1rem',
-            overflow: 'auto',
+            overflow: 'hidden',
             background: 'radial-gradient(ellipse at center, #19523a 0%, #113c2a 65%, #092318 100%)',
             border: '2px solid rgba(229, 231, 235, 0.1)',
             boxShadow: 'inset 0 0 45px rgba(0, 0, 0, 0.75)'
@@ -454,13 +454,13 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                 height: `${layoutResult.boundingBox.height}px`,
                 transform: `scale(${layoutResult.scale})`,
                 transformOrigin: '0 0',
-                transition: 'transform 0.2s ease-out'
+                transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
               }}
             >
-              {/* Left End Connection Point / Drop Zone */}
+              {/* Left End Connection Point / Drop Zone (Strictly Outside Tile) */}
               {layoutResult.leftDropZone && (
                 <div
-                  className={`board-end-drop-zone left-zone ${dragOverEnd === BoardEnd.Left ? 'active-drop' : ''} ${
+                  className={`endpoint-marker left-end ${dragOverEnd === BoardEnd.Left ? 'active-drop' : ''} ${
                     isChoiceActive ? 'choice-active' : ''
                   }`}
                   onClick={() => {
@@ -472,15 +472,15 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                     position: 'absolute',
                     left: `${layoutResult.leftDropZone.x - layoutResult.boundingBox.minX}px`,
                     top: `${layoutResult.leftDropZone.y - layoutResult.boundingBox.minY}px`,
-                    width: `${layoutResult.leftDropZone.width}px`,
+                    width: isChoiceActive ? 'auto' : `${layoutResult.leftDropZone.width}px`,
                     height: `${layoutResult.leftDropZone.height}px`
                   }}
-                  title={isChoiceActive ? 'اضغط هنا للعب على هذا الطرف' : 'نقطة اتصال الطرف المفتوح'}
+                  title={isChoiceActive ? 'اضغط هنا للعب على الطرف الشمال' : 'طرف اللعب المفتوح (شمال)'}
                 >
                   {isChoiceActive ? (
-                    <span className="endpoint-action-badge left">👈 العب هنا</span>
+                    <span className="choice-btn-text">👈 هنا</span>
                   ) : (
-                    <div className="endpoint-beacon" />
+                    <div className="endpoint-dock-dot" />
                   )}
                 </div>
               )}
@@ -516,10 +516,10 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                 );
               })}
 
-              {/* Right End Connection Point / Drop Zone */}
+              {/* Right End Connection Point / Drop Zone (Strictly Outside Tile) */}
               {layoutResult.rightDropZone && (
                 <div
-                  className={`board-end-drop-zone right-zone ${dragOverEnd === BoardEnd.Right ? 'active-drop' : ''} ${
+                  className={`endpoint-marker right-end ${dragOverEnd === BoardEnd.Right ? 'active-drop' : ''} ${
                     isChoiceActive ? 'choice-active' : ''
                   }`}
                   onClick={() => {
@@ -531,15 +531,15 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                     position: 'absolute',
                     left: `${layoutResult.rightDropZone.x - layoutResult.boundingBox.minX}px`,
                     top: `${layoutResult.rightDropZone.y - layoutResult.boundingBox.minY}px`,
-                    width: `${layoutResult.rightDropZone.width}px`,
+                    width: isChoiceActive ? 'auto' : `${layoutResult.rightDropZone.width}px`,
                     height: `${layoutResult.rightDropZone.height}px`
                   }}
-                  title={isChoiceActive ? 'اضغط هنا للعب على هذا الطرف' : 'نقطة اتصال الطرف المفتوح'}
+                  title={isChoiceActive ? 'اضغط هنا للعب على الطرف اليمين' : 'طرف اللعب المفتوح (يمين)'}
                 >
                   {isChoiceActive ? (
-                    <span className="endpoint-action-badge right">👉 العب هنا</span>
+                    <span className="choice-btn-text">👉 هنا</span>
                   ) : (
-                    <div className="endpoint-beacon" />
+                    <div className="endpoint-dock-dot" />
                   )}
                 </div>
               )}
@@ -549,6 +549,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
 
         {/* Right Opponent & Domino Bank Area */}
         <div
+          className="table-right-sidebar"
           style={{
             display: 'flex',
             flexDirection: 'column',

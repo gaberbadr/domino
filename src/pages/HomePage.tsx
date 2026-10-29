@@ -133,9 +133,6 @@ export const HomePage: React.FC<HomePageProps> = ({
               <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
                 {STRINGS.modeIndividualDesc}، والفائز بالجولة هو اللي يبدأ الجولة اللي بعدها.
               </p>
-              <div style={{ fontSize: '0.8rem', color: 'var(--platinum-silver)', fontWeight: 600 }}>
-                ✓ السحبة 14 ورقة عند عدم وجود لعب
-              </div>
             </div>
 
             {/* 3P Triple Card */}
@@ -150,9 +147,6 @@ export const HomePage: React.FC<HomePageProps> = ({
               <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
                 {STRINGS.modeTripleDesc}، والفائز هو صاحب أقل عدد بنط فريد في القفلة.
               </p>
-              <div style={{ fontSize: '0.8rem', color: 'var(--platinum-silver)', fontWeight: 600 }}>
-                ✓ استبعاد ورقة البلاطة (0-0) ومفيش سحبة
-              </div>
             </div>
 
             {/* 4P Quadruple Card */}
@@ -167,9 +161,6 @@ export const HomePage: React.FC<HomePageProps> = ({
               <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
                 {STRINGS.modeQuadrupleDesc}، الفائز في القفلة هو الفريق صاحب أقل مجموع فردي.
               </p>
-              <div style={{ fontSize: '0.8rem', color: 'var(--platinum-silver)', fontWeight: 600 }}>
-                ✓ ميزة طلب اللعب بدلاً من الزميل البادئ
-              </div>
             </div>
           </div>
         </div>
