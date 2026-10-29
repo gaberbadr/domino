@@ -231,6 +231,14 @@ export const App: React.FC = () => {
 
     return () => {
       mounted = false;
+      const conn = signalRService.getConnection();
+      if (conn) {
+        conn.off('PresenceUpdated');
+        conn.off('RoomUpdated');
+        conn.off('RoomDeleted');
+        conn.off('PlayerKicked');
+        conn.off('MatchStarted');
+      }
     };
   }, [currentUser]);
 
