@@ -177,6 +177,8 @@ export interface RoundEndResultDto {
   nextStarterReason?: string;
   isMatchCompleted: boolean;
   playerRemainingPips: Record<string, number>;
+  playerRemainingHands?: Record<string, DominoTile[]>;
+  winnerRemainingHand?: DominoTile[];
 }
 
 export interface MatchEndResultDto {
@@ -187,6 +189,8 @@ export interface MatchEndResultDto {
   finalTeam1Score: number;
   finalTeam2Score: number;
   reason: string;
+  isForfeit?: boolean;
+  forfeitedUserId?: string;
 }
 
 export interface UserProfileDto {

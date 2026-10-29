@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import confetti from 'canvas-confetti';
 import { api, tokenStorage, scheduleProactiveRefresh, stopProactiveRefresh, subscribeAuthChange } from './services/api';
 import { signalRService } from './services/signalr';
 import { webrtcVoiceService } from './services/webrtc';
@@ -313,6 +314,11 @@ export const App: React.FC = () => {
 
   // Explicit exit from in-game
   const handleExitGame = async () => {
+    try {
+      confetti.reset();
+    } catch {
+      // Confetti fallback
+    }
     webrtcVoiceService.leaveSession();
     if (activeRoom) {
       try {

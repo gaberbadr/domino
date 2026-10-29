@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
-import { GameMatchDto, BoardPlacedTile, GameMode, BoardEnd, MatchStatus } from '../types/domino';
+import { GameMatchDto, BoardPlacedTile, GameMode, BoardEnd, MatchStatus, RoundEndResultDto } from '../types/domino';
 import { DominoTileView } from './DominoTileView';
 import { ConcealedHandView } from './ConcealedHandView';
 import { DominoBankView } from './DominoBankView';
 import { ExitConfirmationModal } from './ExitConfirmationModal';
 import { AutoSkipButton } from './AutoSkipButton';
 import { VoiceChatControls } from './VoiceChatControls';
+import { BlockedRoundTableOverlay } from './BlockedRoundTableOverlay';
 import { calculateBoardLayout } from '../services/dominoLayoutEngine';
 import { STRINGS } from '../constants/strings';
 import { Clock, Hand, LogOut, Volume2, Sliders, History, X, Award, Scale, ShieldAlert, Maximize2, Minimize2, MoreVertical } from 'lucide-react';
@@ -24,6 +25,8 @@ interface GameBoardProps {
   isChoiceActive?: boolean;
   roomCode?: string;
   isFullscreen?: boolean;
+  blockedRoundResult?: RoundEndResultDto | null;
+  onViewRoundPrompt?: () => void;
   onToggleFullscreen?: () => void;
   onDraw: () => void;
   onSkip: () => void;
@@ -91,6 +94,8 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
   isChoiceActive = false,
   roomCode,
   isFullscreen = false,
+  blockedRoundResult,
+  onViewRoundPrompt,
   onToggleFullscreen,
   onDraw,
   onSkip,
@@ -790,6 +795,15 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
             direction: 'ltr'
           }}
         >
+          {/* Animated Round Result on Table when Blocked (Closure) */}
+          <BlockedRoundTableOverlay
+            result={blockedRoundResult ?? null}
+            players={match.players}
+            gameMode={match.mode}
+            currentUserId={currentUserId}
+            onViewPrompt={onViewRoundPrompt}
+          />
+
           {/* Mobile Floating Bank (Individual 1v1 mode on small screens) */}
           {match.mode === GameMode.Individual && (
             <div className="mobile-floating-bank">

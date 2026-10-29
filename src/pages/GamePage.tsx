@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import confetti from 'canvas-confetti';
 import { api } from '../services/api';
 import { signalRService } from '../services/signalr';
 import {
@@ -56,8 +57,11 @@ export const GamePage: React.FC<GamePageProps> = ({
   const [choiceTile, setChoiceTile] = useState<DominoTile | null>(null);
   const [invalidDealNotice, setInvalidDealNotice] = useState<InvalidDealNotificationDto | null>(null);
   const [roundEndResult, setRoundEndResult] = useState<RoundEndResultDto | null>(null);
+  const [isRoundPromptVisible, setIsRoundPromptVisible] = useState<boolean>(true);
+  const blockedTimerRef = useRef<number | null>(null);
   const [agreedCount, setAgreedCount] = useState<number>(0);
   const [matchEndResult, setMatchEndResult] = useState<MatchEndResultDto | null>(null);
+  const isExitingRef = useRef<boolean>(false);
 
   // Teammate Start Handoff States
   const [teammateHandoffStatus, setTeammateHandoffStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined' | 'expired'>('idle');
@@ -138,6 +142,21 @@ export const GamePage: React.FC<GamePageProps> = ({
       isCancelled = true;
     };
   }, [initialMatch.id]);
+
+  const myPlayer = useMemo(() => {
+    return match.players?.find((p) => p.userId === currentUser.userId);
+  }, [match.players, currentUser.userId]);
+
+  const handleExitMatch = useCallback(() => {
+    isExitingRef.current = true;
+    try {
+      confetti.reset();
+    } catch {
+      // Confetti fallback
+    }
+    setMatchEndResult(null);
+    onExitGame();
+  }, [onExitGame]);
 
   // Authoritative dynamic legal moves calculation
   const isMyTurn = match.currentTurnUserId === currentUser.userId;
@@ -392,6 +411,16 @@ export const GamePage: React.FC<GamePageProps> = ({
       if (result.outcomeType === RoundOutcomeType.Draw || result.outcomeType === RoundOutcomeType.BlockedWin) {
         soundService.playGameplay('drawOrClose');
       }
+      const isBlocked = result.outcomeType === RoundOutcomeType.BlockedWin || result.outcomeType === RoundOutcomeType.Draw;
+      if (isBlocked) {
+        setIsRoundPromptVisible(false);
+        if (blockedTimerRef.current) clearTimeout(blockedTimerRef.current);
+        blockedTimerRef.current = window.setTimeout(() => {
+          setIsRoundPromptVisible(true);
+        }, 2600);
+      } else {
+        setIsRoundPromptVisible(true);
+      }
       setChoiceTile(null);
       setAgreedCount(0);
       setIsDrawing(false);
@@ -432,6 +461,14 @@ export const GamePage: React.FC<GamePageProps> = ({
     // 8. Match Ended
     conn.on('MatchEnded', (result: MatchEndResultDto) => {
       setChoiceTile(null);
+      if (isExitingRef.current || (result.isForfeit && result.forfeitedUserId === currentUserRef.current.userId)) {
+        try {
+          confetti.reset();
+        } catch {
+          // Confetti fallback
+        }
+        return;
+      }
       setMatchEndResult(result);
     });
 
@@ -453,7 +490,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
     // 10. Teammate Start Request
     conn.on('TeammateStartRequested', (requesterUserId: string, requesterName: string) => {
-      setTeammateRequest({ requesterId: requesterUserId, requesterName });
+      setTeammateApprovalPrompt({ requesterId: requesterUserId, requesterName, secondsLeft: 5 });
     });
 
     conn.on('TeammateStartDecision', (approved: boolean, starterUserId: string) => {
@@ -479,7 +516,9 @@ export const GamePage: React.FC<GamePageProps> = ({
     });
 
     conn.on('NextRoundStarted', (updatedMatch: GameMatchDto) => {
+      if (blockedTimerRef.current) clearTimeout(blockedTimerRef.current);
       setRoundEndResult(null);
+      setIsRoundPromptVisible(false);
       setChoiceTile(null);
       setAgreedCount(0);
       setMatch(updatedMatch);
@@ -614,7 +653,7 @@ export const GamePage: React.FC<GamePageProps> = ({
   const handleApproveTeammateDecision = async (approved: boolean) => {
     try {
       await api.game.approveTeammateStart(match.id, approved);
-      setTeammateRequest(null);
+      setTeammateApprovalPrompt(null);
     } catch (err: any) {
       showToast(err.message || 'فشل الرد على الطلب', 'error');
     }
@@ -719,9 +758,11 @@ export const GamePage: React.FC<GamePageProps> = ({
           if (choiceTile) executeMove(choiceTile.id, end);
         }}
         onCancelChoice={() => setChoiceTile(null)}
-        onExitGame={onExitGame}
+        onExitGame={handleExitMatch}
         onOpenSoundboard={() => setIsSoundboardOpen(true)}
         onOpenSoundSettings={() => setIsSoundSettingsOpen(true)}
+        blockedRoundResult={roundEndResult}
+        onViewRoundPrompt={() => setIsRoundPromptVisible(true)}
       />
 
       {/* Interactive Player Hand at Bottom */}
@@ -741,41 +782,45 @@ export const GamePage: React.FC<GamePageProps> = ({
       />
 
       {/* Round End Modal with Standard Continue/Leave Actions */}
-      <RoundEndModal
-        key={`round-end-${roundEndResult?.roundNumber ?? 0}`}
-        result={roundEndResult}
-        agreedCount={agreedCount}
-        totalRequired={match.players.length}
-        onContinue={async () => {
-          if (roundEndResult) {
-            try {
-              await api.game.continueNextRound(roundEndResult.matchId);
-            } catch (err: any) {
-              showToast(err.message || 'فشل تسجيل الرغبة في المتابعة', 'error');
+      {isRoundPromptVisible && (
+        <RoundEndModal
+          key={`round-end-${roundEndResult?.roundNumber ?? 0}`}
+          result={roundEndResult}
+          agreedCount={agreedCount}
+          totalRequired={match.players.length}
+          onContinue={async () => {
+            if (roundEndResult) {
+              try {
+                await api.game.continueNextRound(roundEndResult.matchId);
+              } catch (err: any) {
+                showToast(err.message || 'فشل تسجيل الرغبة في المتابعة', 'error');
+              }
             }
-          }
-        }}
-        onLeave={onExitGame}
-      />
+          }}
+          onLeave={handleExitMatch}
+        />
+      )}
 
       {/* Match End Modal */}
       <MatchEndModal
         result={matchEndResult}
-        onReturnToLobby={onExitGame}
+        onReturnToLobby={handleExitMatch}
+        currentUserId={currentUser.userId}
+        currentUserTeam={myPlayer?.teamIndex}
       />
 
       {/* Teammate Start Approval Modal */}
-      {teammateRequest && (
+      {teammateApprovalPrompt && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ textAlign: 'center' }}>
             <div className="modal-header">
               <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--gold-primary)' }}>
-                {STRINGS.teammateRequestTitle}
+                {STRINGS.teammateRequestTitle} ({teammateApprovalPrompt.secondsLeft}s)
               </h3>
             </div>
             <div className="modal-body">
               <p style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', marginBottom: '1.5rem' }}>
-                زميلك في الفريق <strong style={{ color: 'var(--gold-primary)' }}>{teammateRequest.requesterName}</strong> طالب يبدأ الجولة بدالك.. موافق؟
+                زميلك في الفريق <strong style={{ color: 'var(--gold-primary)' }}>{teammateApprovalPrompt.requesterName}</strong> طالب يبدأ الجولة بدالك.. موافق؟
               </p>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                 <button

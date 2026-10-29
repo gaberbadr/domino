@@ -672,6 +672,26 @@ table tbody tr:hover {
 /* ==========================================
    DRAG-AND-DROP REORDERING
    ========================================== */
+.hand-tiles-scroll-container {
+  width: 100%;
+  max-width: 1000px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(217, 181, 109, 0.25) transparent;
+}
+
+.hand-tiles-scroll-container::-webkit-scrollbar {
+  height: 3px;
+}
+
+.hand-tiles-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(217, 181, 109, 0.25);
+  border-radius: 3px;
+}
+
 .hand-tile-wrapper.is-dragged {
   opacity: 0.35;
   transform: scale(0.92);
@@ -1834,4 +1854,22 @@ div[style*="border-top: 1px solid rgba(229, 231, 235"],
 div[style*="border-top: 1px solid rgba(255, 255, 255, 0.08)"] {
   background-color: #426B5D !important;
   border-color: #426B5D !important;
+}
+
+/* 10. Blocked Round Table Overlay Animation */
+@keyframes blockedOverlayAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .blocked-players-grid {
+    grid-template-columns: 1fr !important;
+  }
 }

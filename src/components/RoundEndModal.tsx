@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { RoundEndResultDto, RoundOutcomeType } from '../types/domino';
 import { STRINGS } from '../constants/strings';
-import { Award, ShieldAlert, Scale, ArrowRightCircle, LogOut, CheckCircle2, Loader2 } from 'lucide-react';
+import { Award, ShieldAlert, Scale, ArrowRightCircle, LogOut, CheckCircle2, Loader2, Trophy } from 'lucide-react';
+import { DominoTileView } from './DominoTileView';
 
 interface RoundEndModalProps {
   result: RoundEndResultDto | null;
@@ -124,6 +125,97 @@ export const RoundEndModal: React.FC<RoundEndModalProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Winner Remaining Tiles Section */}
+          {isDraw ? (
+            <div
+              style={{
+                background: 'rgba(59, 130, 246, 0.08)',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
+                borderRadius: '0.85rem',
+                padding: '0.75rem',
+                marginBottom: '1.25rem',
+                textAlign: 'center',
+                color: '#93c5fd',
+                fontSize: '0.9rem',
+                fontWeight: 700
+              }}
+            >
+              <span>⚖️ تعادل في القفلة: لا يوجد فائز بهذه الجولة</span>
+            </div>
+          ) : (
+            <div
+              className="round-winner-tiles-container"
+              style={{
+                background: 'rgba(10, 15, 24, 0.75)',
+                border: '1px solid rgba(212, 175, 55, 0.25)',
+                borderRadius: '0.85rem',
+                padding: '0.85rem 1rem',
+                marginBottom: '1.25rem',
+                textAlign: 'center'
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.45rem',
+                  marginBottom: '0.5rem'
+                }}
+              >
+                <Trophy size={18} color="var(--gold-primary)" />
+                <span style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--gold-primary)' }}>
+                  {result.winningTeamIndex
+                    ? `ورق الفريق الفائز (فريق ${result.winningTeamIndex}${result.winnerName ? ` - ${result.winnerName}` : ''})`
+                    : `ورق الفائز (${result.winnerName || 'الفائز'})`}
+                </span>
+              </div>
+
+              {result.winnerRemainingHand && result.winnerRemainingHand.length > 0 ? (
+                <div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      padding: '0.35rem 0'
+                    }}
+                  >
+                    {result.winnerRemainingHand.map((tile) => (
+                      <DominoTileView
+                        key={`winner-tile-${tile.id}`}
+                        tile={tile}
+                        size="small"
+                        orientation="horizontal"
+                      />
+                    ))}
+                  </div>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginTop: '0.35rem' }}>
+                    مجموع ورق الفائز: {result.winnerRemainingHand.reduce((acc, t) => acc + (t.pipSum ?? (t.end1 + t.end2)), 0)} بنط ({result.winnerRemainingHand.length} ورقة)
+                  </span>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.45rem',
+                    color: '#34d399',
+                    fontSize: '0.92rem',
+                    fontWeight: 700,
+                    padding: '0.35rem 0'
+                  }}
+                >
+                  <CheckCircle2 size={18} />
+                  <span>أنهى جميع أوراقه وكسب الجولة (0 ورقة متبقية)</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Next Starter Notice */}
           {result.nextStarterName && (

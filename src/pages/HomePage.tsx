@@ -3,7 +3,7 @@ import { api } from '../services/api';
 import { GameMode, RoomDto, UserProfileDto } from '../types/domino';
 import { STRINGS } from '../constants/strings';
 import { RoomPasswordModal } from '../components/RoomPasswordModal';
-import { PlusCircle, KeyRound, Users, Play, RefreshCw, Lock, Sparkles, AlertCircle, LogIn, Loader2 } from 'lucide-react';
+import { PlusCircle, KeyRound, Users, Play, RefreshCw, Lock, Sparkles, AlertCircle, LogIn, Loader2, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 
 interface HomePageProps {
   user: UserProfileDto | null;
@@ -31,6 +31,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [selectedModeFilter, setSelectedModeFilter] = useState<GameMode | 'all'>('all');
   const [selectedLockedRoom, setSelectedLockedRoom] = useState<RoomDto | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [isModesExpanded, setIsModesExpanded] = useState<boolean>(false);
 
   const fetchRooms = async () => {
     setIsLoadingRooms(true);
@@ -161,52 +162,91 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
-      {/* Modes Overview Cards */}
-      <section style={{ padding: '2rem 0', width: '100%', overflow: 'hidden' }}>
-        <div className="container">
-          <div className="home-modes-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '1.25rem' }}>
-            {/* 1v1 Individual Card */}
-            <div className="card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <span className="badge badge-mocha">1 ضد 1</span>
-                <span style={{ fontSize: '1.5rem' }}>⚔️</span>
-              </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
-                {STRINGS.modeIndividual}
-              </h3>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-                {STRINGS.modeIndividualDesc}، والفائز بالجولة هو اللي يبدأ الجولة اللي بعدها.
-              </p>
-            </div>
+      {/* Modes Overview Collapsible Section */}
+      <section style={{ padding: '0.75rem 0', width: '100%', overflow: 'hidden' }}>
+        <div className="container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {/* Centered Disclosure Button */}
+          <button
+            id="toggle-game-modes-btn"
+            className="btn btn-secondary"
+            onClick={() => setIsModesExpanded((prev) => !prev)}
+            aria-expanded={isModesExpanded}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.45rem 1.15rem',
+              borderRadius: '9999px',
+              fontSize: '0.86rem',
+              fontWeight: 700,
+              background: isModesExpanded ? 'rgba(111, 71, 42, 0.35)' : 'rgba(255, 255, 255, 0.05)',
+              border: isModesExpanded ? '1px solid var(--gold-primary)' : '1px solid rgba(255, 255, 255, 0.15)',
+              color: isModesExpanded ? 'var(--gold-primary)' : '#e2e8f0',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              marginBottom: isModesExpanded ? '1.25rem' : '0'
+            }}
+          >
+            <HelpCircle size={15} />
+            <span>{isModesExpanded ? 'إخفاء شرح أنظمة اللعب' : 'شرح أنظمة وقوانين اللعب (فردي / ثلاثي / رباعي)'}</span>
+            {isModesExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          </button>
 
-            {/* 3P Triple Card */}
-            <div className="card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <span className="badge badge-blue">3 لعيبة</span>
-                <span style={{ fontSize: '1.5rem' }}>🎯</span>
+          {/* Cards Grid revealed when expanded */}
+          {isModesExpanded && (
+            <div
+              className="home-modes-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))',
+                gap: '1.25rem',
+                width: '100%',
+                animation: 'fadeIn 0.25s ease-out'
+              }}
+            >
+              {/* 1v1 Individual Card */}
+              <div className="card">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <span className="badge badge-mocha">1 ضد 1</span>
+                  <span style={{ fontSize: '1.5rem' }}>⚔️</span>
+                </div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
+                  {STRINGS.modeIndividual}
+                </h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+                  {STRINGS.modeIndividualDesc}، والفائز بالجولة هو اللي يبدأ الجولة اللي بعدها.
+                </p>
               </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
-                {STRINGS.modeTriple}
-              </h3>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-                {STRINGS.modeTripleDesc}، والفائز هو صاحب أقل عدد بنط فريد في القفلة.
-              </p>
-            </div>
 
-            {/* 4P Quadruple Card */}
-            <div className="card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <span className="badge badge-green">4 لعيبة (2 ضد 2)</span>
-                <span style={{ fontSize: '1.5rem' }}>👥</span>
+              {/* 3P Triple Card */}
+              <div className="card">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <span className="badge badge-blue">3 لعيبة</span>
+                  <span style={{ fontSize: '1.5rem' }}>🎯</span>
+                </div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
+                  {STRINGS.modeTriple}
+                </h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+                  {STRINGS.modeTripleDesc}، والفائز هو صاحب أقل عدد بنط فريد في القفلة.
+                </p>
               </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
-                {STRINGS.modeQuadruple}
-              </h3>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-                {STRINGS.modeQuadrupleDesc}، الفائز في القفلة هو الفريق صاحب أقل مجموع فردي.
-              </p>
+
+              {/* 4P Quadruple Card */}
+              <div className="card">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <span className="badge badge-green">4 لعيبة (2 ضد 2)</span>
+                  <span style={{ fontSize: '1.5rem' }}>👥</span>
+                </div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
+                  {STRINGS.modeQuadruple}
+                </h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+                  {STRINGS.modeQuadrupleDesc}، الفائز في القفلة هو الفريق صاحب أقل مجموع فردي.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 

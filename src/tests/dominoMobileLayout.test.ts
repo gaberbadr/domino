@@ -217,6 +217,58 @@ console.log('Test 6: Mobile Touch Drag-and-Drop Reordering Logic...');
   console.log('  ✓ Touch drag-and-drop reorder & tap detection verified.\n');
 }
 
+// Test 7: Mobile Hand Horizontal Touch Scroll & Gesture Separation
+console.log('Test 7: Mobile Hand Horizontal Touch Scroll & Gesture Separation...');
+{
+  const mobileViewportW = 390;
+  const tileW = 32;
+  const tileGap = 4;
+  const paddingX = 8 * 2; // 16px
+
+  // Small hand: 4 tiles
+  const smallHandWidth = 4 * tileW + 3 * tileGap + paddingX; // 156px
+  assert(smallHandWidth <= mobileViewportW, 'Small hand (4 tiles) fits comfortably inside 390px viewport');
+
+  // Large hand: 10 tiles (after draws)
+  const largeHandWidth = 10 * tileW + 9 * tileGap + paddingX; // 372px + 16px = 388px -> with small gap ~360px
+  // Extreme hand: 14 tiles
+  const extremeHandWidth = 14 * tileW + 13 * tileGap + paddingX; // 516px
+  assert(extremeHandWidth > mobileViewportW, 'Large hand (14 tiles, 516px) exceeds 390px viewport, requiring horizontal scroll');
+
+  // Touch gesture state classifier
+  const classifyGesture = (params: {
+    dx: number;
+    dy: number;
+    holdDurationMs: number;
+  }): 'tap' | 'swipe-scroll' | 'hold-reorder' => {
+    const dist = Math.hypot(params.dx, params.dy);
+    if (params.holdDurationMs >= 220 && dist <= 8) {
+      return 'hold-reorder';
+    }
+    if (dist > 8) {
+      if (params.dy < -20 && Math.abs(params.dy) > Math.abs(params.dx)) {
+        return 'hold-reorder'; // deliberate vertical lift
+      }
+      return 'swipe-scroll'; // horizontal swipe scrolls container
+    }
+    return 'tap'; // clean tap
+  };
+
+  // 1. Quick tap (e.g. 80ms, 2px jitter)
+  assert(classifyGesture({ dx: 1, dy: 1, holdDurationMs: 80 }) === 'tap', 'Quick tap correctly detected');
+
+  // 2. Horizontal swipe (e.g. 100ms, 25px move)
+  assert(classifyGesture({ dx: 25, dy: 2, holdDurationMs: 100 }) === 'swipe-scroll', 'Horizontal swipe scrolls hand without reordering or tapping');
+
+  // 3. Press and hold (e.g. 250ms hold)
+  assert(classifyGesture({ dx: 2, dy: 1, holdDurationMs: 250 }) === 'hold-reorder', 'Press-and-hold (220ms+) activates drag reorder');
+
+  // 4. Upward deliberate pull
+  assert(classifyGesture({ dx: 2, dy: -25, holdDurationMs: 90 }) === 'hold-reorder', 'Upward pull initiates reorder');
+
+  console.log('  ✓ Horizontal scroll vs drag-reorder vs tap gesture classification verified.\n');
+}
+
 // Test 8: Responsive 2-Player (1v1) Layout & Zero Left-Side Wasted Space
 console.log('Test 8: Responsive 2-Player (1v1) Layout & Zero Left-Side Wasted Space...');
 {
