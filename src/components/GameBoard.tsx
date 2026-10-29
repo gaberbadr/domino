@@ -15,6 +15,10 @@ interface GameBoardProps {
   currentUserId: string;
   canDraw: boolean;
   canSkip: boolean;
+  isSkipping?: boolean;
+  canRequestTeammateStart?: boolean;
+  teammateHandoffStatus?: 'idle' | 'pending' | 'accepted' | 'declined' | 'expired';
+  teammateHandoffSecondsRemaining?: number;
   isDrawing?: boolean;
   drawingTarget?: 'me' | 'opponent' | null;
   isChoiceActive?: boolean;
@@ -78,6 +82,10 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
   currentUserId,
   canDraw,
   canSkip,
+  isSkipping = false,
+  canRequestTeammateStart = false,
+  teammateHandoffStatus = 'idle',
+  teammateHandoffSecondsRemaining = 5,
   isDrawing = false,
   drawingTarget = null,
   isChoiceActive = false,
@@ -272,7 +280,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
             <TurnTimerPill turnDeadlineUtc={match.turnDeadlineUtc} />
 
             {isMyTurn && canSkip && (
-              <AutoSkipButton onSkip={onSkip} initialSeconds={3} />
+              <AutoSkipButton onSkip={onSkip} initialSeconds={3} disabled={isSkipping} />
             )}
           </div>
 
@@ -483,18 +491,30 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
           <TurnTimerPill turnDeadlineUtc={match.turnDeadlineUtc} />
 
           {isMyTurn && canSkip && (
-            <AutoSkipButton onSkip={onSkip} initialSeconds={3} />
+            <AutoSkipButton onSkip={onSkip} initialSeconds={3} disabled={isSkipping} />
           )}
 
-          {match.mode === GameMode.Quadruple && onRequestTeammateStart && !isMyTurn && (
+          {canRequestTeammateStart && onRequestTeammateStart && (
             <button
               className="btn btn-secondary"
               onClick={onRequestTeammateStart}
-              style={{ padding: '0.32rem 0.65rem', fontSize: '0.75rem', gap: '0.25rem' }}
-              title="طلب بداية الجولة بدلاً من الزميل"
+              disabled={teammateHandoffStatus === 'pending'}
+              style={{
+                padding: '0.32rem 0.65rem',
+                fontSize: '0.75rem',
+                gap: '0.25rem',
+                borderColor: teammateHandoffStatus === 'pending' ? 'var(--gold-primary)' : undefined,
+                color: teammateHandoffStatus === 'pending' ? 'var(--gold-primary)' : undefined,
+                cursor: teammateHandoffStatus === 'pending' ? 'not-allowed' : 'pointer'
+              }}
+              title="طلب بداية الجولة بدلاً من الزميل الفائز بالجولة السابقة"
             >
               <Hand size={13} />
-              <span>طلب البداية</span>
+              <span>
+                {teammateHandoffStatus === 'pending'
+                  ? `في الانتظار (${teammateHandoffSecondsRemaining}s)`
+                  : 'طلب البداية'}
+              </span>
             </button>
           )}
         </div>
@@ -629,17 +649,26 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                 <span>سجل الجولات والنقاط 📜</span>
               </button>
 
-              {match.mode === GameMode.Quadruple && onRequestTeammateStart && !isMyTurn && (
+              {canRequestTeammateStart && onRequestTeammateStart && (
                 <button
                   type="button"
                   className="mobile-tool-btn"
+                  disabled={teammateHandoffStatus === 'pending'}
                   onClick={() => {
                     setIsMobileMenuOpen(false);
                     onRequestTeammateStart();
                   }}
+                  style={{
+                    opacity: teammateHandoffStatus === 'pending' ? 0.7 : 1,
+                    color: teammateHandoffStatus === 'pending' ? 'var(--gold-primary)' : undefined
+                  }}
                 >
                   <Hand size={18} color="var(--gold-primary)" />
-                  <span>طلب بداية الجولة من الزميل ✋</span>
+                  <span>
+                    {teammateHandoffStatus === 'pending'
+                      ? `طلب البداية: في الانتظار (${teammateHandoffSecondsRemaining}s)`
+                      : 'طلب بداية الجولة من الزميل ✋'}
+                  </span>
                 </button>
               )}
 

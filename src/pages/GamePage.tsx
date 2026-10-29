@@ -58,7 +58,14 @@ export const GamePage: React.FC<GamePageProps> = ({
   const [roundEndResult, setRoundEndResult] = useState<RoundEndResultDto | null>(null);
   const [agreedCount, setAgreedCount] = useState<number>(0);
   const [matchEndResult, setMatchEndResult] = useState<MatchEndResultDto | null>(null);
-  const [teammateRequest, setTeammateRequest] = useState<{ requesterId: string; requesterName: string } | null>(null);
+
+  // Teammate Start Handoff States
+  const [teammateHandoffStatus, setTeammateHandoffStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined' | 'expired'>('idle');
+  const [teammateHandoffSecondsRemaining, setTeammateHandoffSecondsRemaining] = useState<number>(5);
+  const [hasRequestedTeammateStartThisRound, setHasRequestedTeammateStartThisRound] = useState<boolean>(false);
+  const [teammateApprovalPrompt, setTeammateApprovalPrompt] = useState<{ requesterId: string; requesterName: string; secondsLeft: number } | null>(null);
+  const handoffTimerRef = useRef<number | null>(null);
+  const approvalTimerRef = useRef<number | null>(null);
 
   // Soundboard & Audio Settings
   const [isSoundboardOpen, setIsSoundboardOpen] = useState<boolean>(false);
@@ -71,6 +78,8 @@ export const GamePage: React.FC<GamePageProps> = ({
   const [recentlyDrawnTileId, setRecentlyDrawnTileId] = useState<number | null>(null);
   const [isSubmittingMove, setIsSubmittingMove] = useState<boolean>(false);
   const [rejectedTileId, setRejectedTileId] = useState<number | null>(null);
+  const [isSkipping, setIsSkipping] = useState<boolean>(false);
+  const isSkippingRef = useRef<boolean>(false);
 
   const triggerTileRejection = (tileId: number, message = 'الورقة دي مينفعش تلعبها هنا') => {
     setRejectedTileId(tileId);
@@ -78,12 +87,19 @@ export const GamePage: React.FC<GamePageProps> = ({
     setTimeout(() => setRejectedTileId(null), 700);
   };
 
-  // Notification Toast
+  // Notification Toast with clean timer cancel
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'info' | 'success' | 'error' } | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
 
   const showToast = useCallback((text: string, type: 'info' | 'success' | 'error' = 'info') => {
+    if (toastTimeoutRef.current !== null) {
+      clearTimeout(toastTimeoutRef.current);
+    }
     setToastMessage({ text, type });
-    setTimeout(() => setToastMessage(null), 4000);
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+      toastTimeoutRef.current = null;
+    }, 4000);
   }, []);
 
   // Stable refs to prevent re-attaching SignalR listeners on every state update
@@ -150,6 +166,80 @@ export const GamePage: React.FC<GamePageProps> = ({
     lastRoundHistory?.outcomeType,
     privateState.hand
   ]);
+
+  // Determine if teammate start request is eligible
+  const isTeammateStartEligible = useMemo(() => {
+    if (match.mode !== GameMode.Quadruple) return false;
+    if (match.status !== MatchStatus.Active) return false;
+    if (match.roundNumber <= 1) return false; // Never available at the beginning of a match
+    if (hasRequestedTeammateStartThisRound) return false;
+    // Must be about to begin next round: board empty
+    if (match.boardChain && match.boardChain.length > 0) return false;
+    if (match.openLeft != null || match.openRight != null) return false;
+
+    const starter = match.players.find((p) => p.userId === match.currentTurnUserId);
+    const me = match.players.find((p) => p.userId === currentUser.userId);
+    if (!starter || !me) return false;
+    if (starter.userId === me.userId) return false;
+    if (starter.teamIndex !== me.teamIndex) return false;
+
+    // Previous round must have ended in a qualifying team victory won by the designated starter
+    const lastHistory = match.roundHistories && match.roundHistories.length > 0
+      ? match.roundHistories[match.roundHistories.length - 1]
+      : null;
+    if (!lastHistory) return false;
+    if (lastHistory.outcomeType === RoundOutcomeType.Draw) return false;
+    if (!lastHistory.winnerUserId || lastHistory.winnerUserId !== starter.userId) return false;
+    if (lastHistory.winningTeamIndex !== me.teamIndex) return false;
+
+    return true;
+  }, [match, currentUser.userId, hasRequestedTeammateStartThisRound]);
+
+  // Reset teammate handoff state on round transitions
+  useEffect(() => {
+    setHasRequestedTeammateStartThisRound(false);
+    setTeammateHandoffStatus('idle');
+    setTeammateApprovalPrompt(null);
+    if (handoffTimerRef.current !== null) {
+      clearInterval(handoffTimerRef.current);
+      handoffTimerRef.current = null;
+    }
+    if (approvalTimerRef.current !== null) {
+      clearInterval(approvalTimerRef.current);
+      approvalTimerRef.current = null;
+    }
+  }, [match.roundNumber]);
+
+  // 5-second countdown timer for designated starter prompt
+  useEffect(() => {
+    if (!teammateApprovalPrompt) {
+      if (approvalTimerRef.current !== null) {
+        clearInterval(approvalTimerRef.current);
+        approvalTimerRef.current = null;
+      }
+      return;
+    }
+
+    approvalTimerRef.current = window.setInterval(() => {
+      setTeammateApprovalPrompt((prev) => {
+        if (!prev || prev.secondsLeft <= 1) {
+          if (approvalTimerRef.current !== null) {
+            clearInterval(approvalTimerRef.current);
+            approvalTimerRef.current = null;
+          }
+          return null; // Expired
+        }
+        return { ...prev, secondsLeft: prev.secondsLeft - 1 };
+      });
+    }, 1000);
+
+    return () => {
+      if (approvalTimerRef.current !== null) {
+        clearInterval(approvalTimerRef.current);
+        approvalTimerRef.current = null;
+      }
+    };
+  }, [teammateApprovalPrompt?.requesterId]);
 
   // Fullscreen event listener and cleanup
   useEffect(() => {

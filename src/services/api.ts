@@ -292,9 +292,16 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
       }
     }
 
-    // Refresh was rejected or retry failed -> clear session cleanly
-    tokenStorage.clear();
-    throw new Error('جلسة الدخول انتهت، برجاء تسجيل الدخول مجدداً');
+    // Only clear session if refresh token is genuinely absent or was revoked/rejected
+    const currentRefreshToken = tokenStorage.getRefreshToken();
+    if (!currentRefreshToken) {
+      tokenStorage.clear();
+      throw new Error('جلسة الدخول انتهت، برجاء تسجيل الدخول مجدداً');
+    }
+
+    // Do NOT clear valid user session on transient errors or non-auth 401 responses
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData?.message || 'غير مصرح بالعملية أو انتهت صلاحية الدور');
   }
 
   if (response.status === 403) {
