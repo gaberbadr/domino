@@ -94,8 +94,10 @@ export function calculateBoardLayout({
   const ROW_PITCH = 78; // Centerline distance between adjacent rows (allows 72px doubles with clean clearance)
 
   // Calculate dynamic turn limits based on available viewport width
-  const effectiveWidth = Math.max(280, boardWidth || 800);
-  const usableWidth = effectiveWidth - 90;
+  const effectiveWidth = Math.max(240, boardWidth || 800);
+  // On mobile boards (<= 500px), boardWidth is already the measured canvas width, avoid excessive desktop deduction
+  const sideMargin = effectiveWidth <= 500 ? 24 : 64;
+  const usableWidth = Math.max(180, effectiveWidth - sideMargin);
   const tileRunLength = 2 * S + GAP; // 74px
   const maxTilesInRow = Math.max(3, Math.min(7, Math.floor(usableWidth / tileRunLength)));
   const armLimit = Math.max(1, Math.floor((maxTilesInRow - 1) / 2));
@@ -604,19 +606,15 @@ export function calculateBoardLayout({
   }
 
   if (rightDropZone) {
-    const rZoneMinX = rightDropZone.x - 28;
-    const rZoneMaxX = rightDropZone.x + rightDropZone.width + 28;
-    if (rZoneMinX < minX) minX = rZoneMinX;
-    if (rZoneMaxX > maxX) maxX = rZoneMaxX;
+    if (rightDropZone.x < minX) minX = rightDropZone.x;
+    if (rightDropZone.x + rightDropZone.width > maxX) maxX = rightDropZone.x + rightDropZone.width;
     if (rightDropZone.y < minY) minY = rightDropZone.y;
     if (rightDropZone.y + rightDropZone.height > maxY) maxY = rightDropZone.y + rightDropZone.height;
   }
 
   if (leftDropZone) {
-    const lZoneMinX = leftDropZone.x - 28;
-    const lZoneMaxX = leftDropZone.x + leftDropZone.width + 28;
-    if (lZoneMinX < minX) minX = lZoneMinX;
-    if (lZoneMaxX > maxX) maxX = lZoneMaxX;
+    if (leftDropZone.x < minX) minX = leftDropZone.x;
+    if (leftDropZone.x + leftDropZone.width > maxX) maxX = leftDropZone.x + leftDropZone.width;
     if (leftDropZone.y < minY) minY = leftDropZone.y;
     if (leftDropZone.y + leftDropZone.height > maxY) maxY = leftDropZone.y + leftDropZone.height;
   }

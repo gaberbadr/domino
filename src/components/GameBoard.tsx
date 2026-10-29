@@ -672,18 +672,20 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
 
       {/* Virtual Table Canvas with Opponents on Perimeters */}
       <div
-        className="virtual-felt-area"
+        className={`virtual-felt-area players-${totalPlayers}`}
         style={{
           flex: 1,
           display: 'grid',
           gridTemplateRows: 'auto 1fr',
-          gridTemplateColumns: leftPlayer ? 'auto 1fr auto' : '1fr auto',
+          gridTemplateColumns: totalPlayers === 4 ? 'auto 1fr auto' : totalPlayers === 3 ? '1fr auto' : '1fr auto',
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          direction: 'ltr'
         }}
       >
         {/* Top Opponent (Across table in 1v1, 3p, or 4p) */}
         <div
+          className="table-top-player"
           style={{
             gridColumn: '1 / -1',
             display: 'flex',
@@ -711,12 +713,14 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
         {/* Left Opponent (in 4p Quadruple mode) */}
         {leftPlayer && (
           <div
+            className="table-left-sidebar"
             style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              paddingLeft: '0.75rem',
+              paddingLeft: '0.5rem',
+              paddingRight: '0.25rem',
               zIndex: 10
             }}
           >
@@ -745,7 +749,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
           style={{
             flex: 1,
             position: 'relative',
-            margin: '0.45rem',
+            margin: '0.35rem',
             borderRadius: '1rem',
             overflow: 'hidden',
             background: 'radial-gradient(ellipse at center, #19523a 0%, #113c2a 65%, #092318 100%)',
@@ -753,9 +757,22 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
             boxShadow: isChoiceActive
               ? 'inset 0 0 50px rgba(0, 0, 0, 0.75), 0 0 15px rgba(212, 175, 55, 0.35)'
               : 'inset 0 0 45px rgba(0, 0, 0, 0.75)',
-            transition: 'border-color 0.2s, box-shadow 0.2s'
+            transition: 'border-color 0.2s, box-shadow 0.2s',
+            direction: 'ltr'
           }}
         >
+          {/* Mobile Floating Bank (Individual 1v1 mode on small screens) */}
+          {match.mode === GameMode.Individual && (
+            <div className="mobile-floating-bank">
+              <DominoBankView
+                bankCount={match.bankCount}
+                canDraw={isMyTurn && canDraw}
+                isDrawing={isDrawing}
+                drawTargetDirection={drawingTarget === 'opponent' ? 'up' : 'down'}
+                onDraw={onDraw}
+              />
+            </div>
+          )}
           {/* Subtle Choice Mode Banner Guide */}
           {isChoiceActive && (
             <div
@@ -964,43 +981,48 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
         </div>
 
         {/* Right Opponent & Domino Bank Area */}
-        <div
-          className="table-right-sidebar"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'space-around',
-            paddingRight: '0.75rem',
-            gap: '1rem',
-            zIndex: 10
-          }}
-        >
-          {/* Right Opponent (in 3p or 4p mode) */}
-          {rightPlayer && (
-            <ConcealedHandView
-              displayName={rightPlayer.displayName}
-              tileCount={rightPlayer.tileCount}
-              isCurrentTurn={match.currentTurnUserId === rightPlayer.userId}
-              isConnected={rightPlayer.isConnected}
-              teamIndex={rightPlayer.teamIndex}
-              mode={match.mode}
-              position="right"
-              isTeammate={false}
-            />
-          )}
+        {(rightPlayer || match.mode === GameMode.Individual) && (
+          <div
+            className={`table-right-sidebar ${!rightPlayer ? 'bank-only' : ''}`}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'space-around',
+              paddingLeft: '0.25rem',
+              paddingRight: '0.5rem',
+              gap: '1rem',
+              zIndex: 10
+            }}
+          >
+            {/* Right Opponent (in 3p or 4p mode) */}
+            {rightPlayer && (
+              <ConcealedHandView
+                displayName={rightPlayer.displayName}
+                tileCount={rightPlayer.tileCount}
+                isCurrentTurn={match.currentTurnUserId === rightPlayer.userId}
+                isConnected={rightPlayer.isConnected}
+                teamIndex={rightPlayer.teamIndex}
+                mode={match.mode}
+                position="right"
+                isTeammate={false}
+              />
+            )}
 
-          {/* Dedicated Bank Stack (Individual 1v1 mode ONLY) */}
-          {match.mode === GameMode.Individual && (
-            <DominoBankView
-              bankCount={match.bankCount}
-              canDraw={isMyTurn && canDraw}
-              isDrawing={isDrawing}
-              drawTargetDirection={drawingTarget === 'opponent' ? 'up' : 'down'}
-              onDraw={onDraw}
-            />
-          )}
-        </div>
+            {/* Desktop Dedicated Bank Stack (Individual 1v1 mode ONLY) */}
+            {match.mode === GameMode.Individual && (
+              <div className="desktop-bank-wrapper">
+                <DominoBankView
+                  bankCount={match.bankCount}
+                  canDraw={isMyTurn && canDraw}
+                  isDrawing={isDrawing}
+                  drawTargetDirection={drawingTarget === 'opponent' ? 'up' : 'down'}
+                  onDraw={onDraw}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Round History Popover Panel */}

@@ -243,13 +243,13 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
         className="hand-tiles-row"
         style={{
           display: 'flex',
-          gap: orderedTiles.length > 8 ? '0.35rem' : '0.55rem',
+          gap: orderedTiles.length > 8 ? '0.25rem' : '0.45rem',
           overflowX: 'auto',
           overflowY: 'hidden',
-          padding: '0.3rem 0.4rem 0.45rem',
+          padding: '0.25rem 0.4rem 0.35rem',
           maxWidth: '100%',
           width: '100%',
-          justifyContent: orderedTiles.length <= 7 ? 'center' : 'flex-start',
+          justifyContent: 'center',
           alignItems: 'center',
           scrollBehavior: 'smooth',
           touchAction: 'pan-x'

@@ -7,7 +7,9 @@ import {
   GameMatchDto,
   PlayerPrivateStateDto,
   CreateRoomRequest,
-  ActiveMatchRecoveryDto
+  ActiveMatchRecoveryDto,
+  RoomPlayerDto,
+  BoardPlacedTile
 } from './types/domino';
 import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
@@ -59,6 +61,85 @@ export const App: React.FC = () => {
     const isCallback = window.location.pathname === '/callback' || search.includes('accessToken=') || search.includes('error=');
     if (isCallback) {
       setCurrentPage('callback');
+      return;
+    }
+
+    if (search.includes('mock=')) {
+      const matchParams = new URLSearchParams(search);
+      const playerCount = parseInt(matchParams.get('mock') || '2', 10);
+      const mode = playerCount === 4 ? 3 : playerCount === 3 ? 2 : 1;
+      const me: UserProfileDto = { userId: 'user-1', fullName: 'أحمد', email: 'ahmed@test.com', isAdmin: false, isActive: true };
+      setCurrentUser(me);
+
+      const p1: RoomPlayerDto = { userId: 'user-1', displayName: 'أحمد', seatIndex: 0, teamIndex: mode === 3 ? 1 : 0, isHost: true, isConnected: true, tileCount: 7, cumulativeScore: 35 };
+      const p2: RoomPlayerDto = { userId: 'user-2', displayName: 'محمود', seatIndex: 1, teamIndex: mode === 3 ? 2 : 0, isHost: false, isConnected: true, tileCount: 6, cumulativeScore: 20 };
+      const p3: RoomPlayerDto = { userId: 'user-3', displayName: 'كريم', seatIndex: 2, teamIndex: mode === 3 ? 1 : 0, isHost: false, isConnected: true, tileCount: 5, cumulativeScore: 15 };
+      const p4: RoomPlayerDto = { userId: 'user-4', displayName: 'علي', seatIndex: 3, teamIndex: mode === 3 ? 2 : 0, isHost: false, isConnected: true, tileCount: 6, cumulativeScore: 40 };
+
+      const players = playerCount === 4 ? [p1, p2, p3, p4] : playerCount === 3 ? [p1, p2, p3] : [p1, p2];
+
+      const room: RoomDto = {
+        id: 'mock-room',
+        roomCode: 'EGY99',
+        name: 'طاولة المحترفين',
+        mode,
+        isPrivate: false,
+        maxPlayers: playerCount,
+        currentPlayersCount: playerCount,
+        hostId: 'user-1',
+        hostName: 'أحمد',
+        status: 1 as any,
+        players
+      };
+      setActiveRoom(room);
+
+      const initialChain: BoardPlacedTile[] = [
+        { tileId: 1, leftPip: 6, rightPip: 6, orderIndex: 0 },
+        { tileId: 2, leftPip: 6, rightPip: 3, orderIndex: 1, placedAt: 2 },
+        { tileId: 3, leftPip: 3, rightPip: 5, orderIndex: 2, placedAt: 2 },
+        { tileId: 4, leftPip: 5, rightPip: 1, orderIndex: 3, placedAt: 2 },
+        { tileId: 5, leftPip: 6, rightPip: 2, orderIndex: 4, placedAt: 1 },
+        { tileId: 6, leftPip: 2, rightPip: 0, orderIndex: 5, placedAt: 1 }
+      ];
+
+      const gameMatch: GameMatchDto = {
+        id: 'mock-match',
+        roomId: 'mock-room',
+        mode,
+        status: 0,
+        roundNumber: 2,
+        team1Score: 45,
+        team2Score: 30,
+        currentTurnUserId: 'user-1',
+        turnDeadlineUtc: new Date(Date.now() + 25000).toISOString(),
+        openLeft: 0,
+        openRight: 1,
+        bankCount: mode === 1 ? 14 : 0,
+        boardChain: initialChain,
+        players,
+        roundHistories: []
+      };
+      setActiveMatch(gameMatch);
+
+      const privState: PlayerPrivateStateDto = {
+        hand: [
+          { id: 10, end1: 0, end2: 4 },
+          { id: 11, end1: 1, end2: 4 },
+          { id: 12, end1: 3, end2: 4 },
+          { id: 13, end1: 5, end2: 4 },
+          { id: 14, end1: 4, end2: 4 },
+          { id: 15, end1: 2, end2: 3 },
+          { id: 16, end1: 1, end2: 2 }
+        ],
+        legalMoves: [
+          { tile: { id: 10, end1: 0, end2: 4 }, canPlaceLeft: true, canPlaceRight: false, requiresChoice: false },
+          { tile: { id: 11, end1: 1, end2: 4 }, canPlaceLeft: false, canPlaceRight: true, requiresChoice: false }
+        ],
+        canDraw: mode === 1,
+        canSkip: false
+      };
+      setPrivateState(privState);
+      setCurrentPage('game');
       return;
     }
 

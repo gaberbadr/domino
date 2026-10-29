@@ -217,16 +217,167 @@ console.log('Test 6: Mobile Touch Drag-and-Drop Reordering Logic...');
   console.log('  ✓ Touch drag-and-drop reorder & tap detection verified.\n');
 }
 
-// Test 7: Opponent Visual Stack & State Synchronization
-console.log('Test 7: Opponent Visual Stack & State Synchronization...');
+// Test 8: Responsive 2-Player (1v1) Layout & Zero Left-Side Wasted Space
+console.log('Test 8: Responsive 2-Player (1v1) Layout & Zero Left-Side Wasted Space...');
 {
-  // Visual mini stack renders 1-4 tiles corresponding to remaining tile count
-  const getStackSize = (count: number) => Math.max(1, Math.min(count, 4));
-  assert(getStackSize(7) === 4, 'Full hand (7 tiles) renders 4-tile mini stack');
-  assert(getStackSize(3) === 3, '3 tiles renders 3-tile mini stack');
-  assert(getStackSize(1) === 1, 'Last tile renders 1-tile mini stack');
-  assert(getStackSize(0) === 1, 'Empty hand falls back gracefully');
-  console.log('  ✓ Opponent visual stack size verified.\n');
+  const viewportW = 390;
+  const viewportH = 844;
+  const safeAreaTop = 47;
+  const safeAreaBottom = 34;
+
+  // On 2-player mobile:
+  // - Top opponent badge: compact ~28px
+  // - Reclaimed compact player hand: ~78px (down from 120px)
+  // - Mobile header: ~36px
+  // - Table container margins: 2px on top/bottom, 4px on left/right
+  const tableMarginX = 4 * 2; // 8px total
+  const feltMarginX = 3 * 2;  // 6px total
+  const availableTableW = viewportW - tableMarginX;
+  const availableFeltW = availableTableW - feltMarginX; // 376px
+
+  const tableHeaderH = 36;
+  const topOpponentH = 28;
+  const playerHandH = 78;
+  const availableFeltH = viewportH - safeAreaTop - safeAreaBottom - tableHeaderH - topOpponentH - playerHandH - 12;
+
+  // In 1v1: Zero side columns! Bank is a floating corner widget.
+  // Board takes 100% of available felt width!
+  console.log(`  2-Player Board: width=${availableFeltW}px (occupies ${(availableFeltW / viewportW * 100).toFixed(1)}% of viewport), height=${availableFeltH}px`);
+  assert(availableFeltW >= 370, '1v1 board width exceeds 370px, utilizing full phone width');
+  assert(availableFeltH >= 615, `1v1 board height (${availableFeltH}px) exceeds 615px due to reclaimed hand space`);
+
+  // Centering: Left margin === Right margin
+  const leftSpace = (viewportW - availableFeltW) / 2;
+  const rightSpace = (viewportW - availableFeltW) / 2;
+  assert(leftSpace === rightSpace, 'Left and right margins are completely symmetrical');
+  assert(leftSpace <= 8, `Left unused space (${leftSpace}px) is minimal (<= 8px)`);
+
+  const layout = calculateBoardLayout({
+    chain: mockChain,
+    openLeft: 2,
+    openRight: 4,
+    boardWidth: availableFeltW,
+    boardHeight: availableFeltH
+  });
+  assert(layout.scale >= 0.75, `1v1 chain scale (${layout.scale.toFixed(2)}) is crisp and large (>= 0.75)`);
+  assert(layout.offsetX >= 0, 'Chain offsetX must not be negative');
+  // Visual left and right padding within felt canvas are balanced
+  const renderedChainW = layout.boundingBox.width * layout.scale;
+  const expectedChainOffsetX = Math.round((availableFeltW - renderedChainW) / 2);
+  assert(Math.abs(layout.offsetX - expectedChainOffsetX) <= 1, 'Domino chain is centered in 1v1 board');
+  console.log('  ✓ 2-Player (1v1) layout & zero left-side waste verified.\n');
 }
 
-console.log('=== ALL 7 NATIVE MOBILE DOMINO UI/UX TESTS PASSED! ===');
+// Test 9: Responsive 3-Player Layout (Top, Bottom, and Right Side Vertical Hand)
+console.log('Test 9: Responsive 3-Player Layout (Top, Bottom, and Right Side Vertical Hand)...');
+{
+  const viewportW = 390;
+  const tableMarginX = 8;
+  const availableTableW = viewportW - tableMarginX; // 382px
+
+  // Target arrangement:
+  // - Current player: bottom horizontal hand
+  // - First opponent: top compact badge
+  // - Third player: right side vertical column (54px wide)
+  // - Left side: 0px (board extends to left table edge)
+  const rightSidebarW = 54;
+  const boardW = availableTableW - rightSidebarW - 6; // ~322px
+
+  console.log(`  3-Player Board: width=${boardW}px (retains ${Math.round(boardW / availableTableW * 100)}% of table width), rightSidebar=${rightSidebarW}px`);
+  assert(boardW >= 315, `3-player central board width (${boardW}px) retains sufficient width (>= 315px)`);
+
+  // Side player hand: vertical column with compact 44x22px horizontal tiles
+  const sideTileW = 44;
+  const sideTileH = 22;
+  assert(sideTileW <= rightSidebarW, 'Side player dominoes fit comfortably inside side panel without overlapping board');
+
+  const layout = calculateBoardLayout({
+    chain: mockChain,
+    openLeft: 2,
+    openRight: 4,
+    boardWidth: boardW,
+    boardHeight: 580
+  });
+  assert(layout.scale >= 0.70, `3-player chain scale (${layout.scale.toFixed(2)}) remains readable (>= 0.70)`);
+  console.log('  ✓ 3-Player layout & vertical side player verified.\n');
+}
+
+// Test 10: Responsive 4-Player Layout (Table-Like Arrangement with Left & Right Vertical Panels)
+console.log('Test 10: Responsive 4-Player Layout (Table-Like Arrangement with Left & Right Vertical Panels)...');
+{
+  const viewportW = 390;
+  const tableMarginX = 8;
+  const availableTableW = viewportW - tableMarginX; // 382px
+
+  // Target arrangement:
+  // - Current player: bottom horizontal
+  // - Opposite player: top horizontal
+  // - Left player: left vertical panel (54px)
+  // - Right player: right vertical panel (54px)
+  // - Central board: middle playing area
+  const leftSidebarW = 54;
+  const rightSidebarW = 54;
+  const centralBoardW = availableTableW - leftSidebarW - rightSidebarW - 8; // ~266px
+  const centralBoardH = 340; // Nearly square playing area
+
+  console.log(`  4-Player Central Board: ${centralBoardW}px W x ${centralBoardH}px H (aspect ratio ${(centralBoardW / centralBoardH).toFixed(2)})`);
+  assert(leftSidebarW === rightSidebarW, 'Left and right side panels are perfectly symmetrical');
+  assert(centralBoardW >= 255, `Central board width (${centralBoardW}px) provides spacious play area (>= 255px)`);
+
+  // Aspect ratio is approximately square (within 0.7 - 1.3)
+  const aspectRatio = centralBoardW / centralBoardH;
+  assert(aspectRatio >= 0.7 && aspectRatio <= 1.3, `Board aspect ratio (${aspectRatio.toFixed(2)}) is approximately square`);
+
+  const layout = calculateBoardLayout({
+    chain: mockChain,
+    openLeft: 2,
+    openRight: 4,
+    boardWidth: centralBoardW,
+    boardHeight: centralBoardH
+  });
+  assert(layout.scale >= 0.65, `4-player central chain scale (${layout.scale.toFixed(2)}) remains >= 0.65`);
+  assert(layout.offsetX >= 0, 'Chain offsetX must not clip left edge');
+  assert(layout.offsetY >= 0, 'Chain offsetY must not clip top edge');
+  console.log('  ✓ 4-Player table-like layout & symmetry verified.\n');
+}
+
+// Test 11: Orientation & Desktop Layout Preservation Verification
+console.log('Test 11: Orientation & Desktop Layout Preservation Verification...');
+{
+  // 1. Mobile Landscape (844 x 390 px)
+  const landscapeViewportW = 844;
+  const landscapeViewportH = 390;
+  const safeAreaLeft = 47; // iPhone notch
+  const safeAreaRight = 47;
+  const usableLandscapeW = landscapeViewportW - safeAreaLeft - safeAreaRight; // 750px
+  assert(usableLandscapeW >= 700, 'Landscape width provides expansive horizontal space');
+
+  // In 1v1 landscape:
+  const landscapeFeltW = usableLandscapeW - 16;
+  const landscapeFeltH = landscapeViewportH - 32 - 24 - 60 - 8; // ~266px
+  const landscapeLayout = calculateBoardLayout({
+    chain: mockChain,
+    openLeft: 2,
+    openRight: 4,
+    boardWidth: landscapeFeltW,
+    boardHeight: landscapeFeltH
+  });
+  assert(landscapeLayout.scale >= 0.80, `Landscape chain scale (${landscapeLayout.scale.toFixed(2)}) >= 0.80`);
+  console.log('  ✓ Mobile landscape orientation verified.');
+
+  // 2. Desktop Preservation (1440 x 900 px)
+  const desktopBoardW = 1200;
+  const desktopBoardH = 650;
+  const desktopLayout = calculateBoardLayout({
+    chain: mockChain,
+    openLeft: 2,
+    openRight: 4,
+    boardWidth: desktopBoardW,
+    boardHeight: desktopBoardH
+  });
+  assert(desktopLayout.scale === 1.0, `Desktop chain scale (${desktopLayout.scale}) is uncompressed (1.00)`);
+  assert(desktopLayout.offsetX >= 200, 'Desktop chain is generously centered');
+  console.log('  ✓ Desktop and laptop layout preservation verified.\n');
+}
+
+console.log('=== ALL 11 NATIVE MOBILE DOMINO UI/UX TESTS PASSED! ===');

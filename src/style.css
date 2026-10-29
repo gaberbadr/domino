@@ -1157,25 +1157,120 @@ table tbody tr:hover {
     justify-content: flex-start !important;
   }
 
+  .gameplay-screen {
+    padding-left: max(3px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(3px, env(safe-area-inset-right, 0px)) !important;
+    padding-top: max(2px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: 0 !important;
+  }
+
   .game-table-container {
-    margin: 0.15rem 0.25rem !important;
-    border-radius: 0.85rem !important;
+    margin: 0.12rem 0.2rem !important;
+    border-radius: 0.75rem !important;
     border-width: 2px !important;
   }
 
+  /* Responsive Mobile Table Grid (2, 3, and 4 players) */
   .virtual-felt-area {
-    display: flex !important;
-    flex-direction: column !important;
+    display: grid !important;
+    grid-template-rows: auto 1fr !important;
     position: relative !important;
+    direction: ltr !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
   }
 
-  /* Suppress tall fan of concealed tile backs on portrait phone to give table maximum height */
+  /* 2 Players (1v1): Full width board with floating bank */
+  .virtual-felt-area.players-2 {
+    grid-template-columns: 1fr !important;
+  }
+  .virtual-felt-area.players-2 .board-felt-canvas {
+    grid-column: 1 / -1 !important;
+  }
+  .virtual-felt-area.players-2 .table-right-sidebar.bank-only {
+    display: none !important;
+  }
+
+  /* 3 Players: Board stretches from left table border, Right is vertical side player */
+  .virtual-felt-area.players-3 {
+    grid-template-columns: 1fr auto !important;
+  }
+  .virtual-felt-area.players-3 .board-felt-canvas {
+    grid-column: 1 !important;
+  }
+  .virtual-felt-area.players-3 .table-right-sidebar {
+    grid-column: 2 !important;
+    width: 54px !important;
+    max-width: 58px !important;
+    padding: 0 2px !important;
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    transform: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 15 !important;
+  }
+
+  /* 4 Players: Symmetrical left player, center board, right player */
+  .virtual-felt-area.players-4 {
+    grid-template-columns: auto 1fr auto !important;
+  }
+  .virtual-felt-area.players-4 .table-left-sidebar {
+    grid-column: 1 !important;
+    width: 54px !important;
+    max-width: 58px !important;
+    padding: 0 2px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 15 !important;
+  }
+  .virtual-felt-area.players-4 .board-felt-canvas {
+    grid-column: 2 !important;
+  }
+  .virtual-felt-area.players-4 .table-right-sidebar {
+    grid-column: 3 !important;
+    width: 54px !important;
+    max-width: 58px !important;
+    padding: 0 2px !important;
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    transform: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 15 !important;
+  }
+
+  /* Mobile Floating Bank (in 1v1 mode) */
+  .mobile-floating-bank {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    z-index: 25 !important;
+    transform: scale(0.82) !important;
+    transform-origin: top right !important;
+    pointer-events: auto !important;
+  }
+  .desktop-bank-wrapper {
+    display: none !important;
+  }
+
+  /* Top Opponent Seat: Compact badge */
   .concealed-hand-row.top {
     display: none !important;
   }
   .opponent-seat.seat-top {
     gap: 0 !important;
     padding: 0.12rem 0 0.08rem !important;
+    direction: rtl !important;
   }
   .opponent-seat.seat-top .player-badge-card {
     padding: 0.18rem 0.65rem !important;
@@ -1183,31 +1278,81 @@ table tbody tr:hover {
     font-size: 0.78rem !important;
   }
 
-  /* Anchor bank neatly in top-right of the felt so felt gets 100% width */
-  .table-right-sidebar {
-    position: absolute !important;
-    top: 6px !important;
-    right: 6px !important;
-    padding-right: 0 !important;
-    z-index: 30 !important;
-    transform: scale(0.85);
-    transform-origin: top right;
-    pointer-events: auto;
+  /* Side Players (Left and Right) Presentation */
+  .opponent-seat.seat-left,
+  .opponent-seat.seat-right {
+    width: 54px !important;
+    max-width: 56px !important;
+    gap: 0.15rem !important;
+    padding: 0.1rem 0 !important;
+    direction: rtl !important;
   }
 
+  .opponent-seat.seat-left .player-badge-card,
+  .opponent-seat.seat-right .player-badge-card {
+    flex-direction: column !important;
+    padding: 0.2rem 0.25rem !important;
+    border-radius: 0.65rem !important;
+    gap: 0.12rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+  }
+
+  .opponent-seat.seat-left .player-badge-card > span:first-of-type,
+  .opponent-seat.seat-right .player-badge-card > span:first-of-type {
+    max-width: 48px !important;
+    font-size: 0.68rem !important;
+    text-align: center !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .opponent-seat.seat-left .opponent-tiles-indicator,
+  .opponent-seat.seat-right .opponent-tiles-indicator {
+    padding: 0.05rem 0.25rem !important;
+    font-size: 0.66rem !important;
+    gap: 0.1rem !important;
+  }
+
+  .opponent-seat.seat-left .mini-concealed-stack,
+  .opponent-seat.seat-right .mini-concealed-stack {
+    display: none !important;
+  }
+
+  /* Concealed tiles vertical column for side players */
+  .opponent-seat.seat-left .concealed-hand-row,
+  .opponent-seat.seat-right .concealed-hand-row {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    padding: 0 !important;
+    width: 44px !important;
+    gap: -12px !important;
+  }
+
+  .opponent-seat.seat-left .domino-tile.horizontal,
+  .opponent-seat.seat-right .domino-tile.horizontal {
+    width: 44px !important;
+    height: 22px !important;
+  }
+
+  /* Green Felt Canvas: Maximized available board space */
   .board-felt-canvas {
-    margin: 0.15rem !important;
+    margin: 0.12rem 0.2rem !important;
     border-radius: 0.75rem !important;
   }
 
-  /* Player Hand Layout on Mobile Portrait - Compacted with reduced bottom padding */
+  /* Player Hand Layout on Mobile Portrait - Compacted to prioritize central board */
   .player-hand-container {
-    padding: 0.2rem 0.35rem calc(env(safe-area-inset-bottom, 0px) + 0.15rem) !important;
-    box-shadow: 0 -6px 20px rgba(10, 26, 21, 0.45) !important;
+    padding: 0.18rem 0.35rem calc(env(safe-area-inset-bottom, 0px) + 0.12rem) !important;
+    box-shadow: 0 -4px 14px rgba(10, 26, 21, 0.4) !important;
   }
 
   .player-hand-header {
-    margin-bottom: 0.12rem !important;
+    margin-bottom: 0.08rem !important;
     padding: 0 0.25rem !important;
   }
 
@@ -1217,18 +1362,20 @@ table tbody tr:hover {
 
   /* Moderately reduced hand tiles on mobile portrait (comfortable touch target, less vertical consumption) */
   .domino-tile.vertical.size-normal {
-    width: 35px !important;
-    height: 70px !important;
+    width: 32px !important;
+    height: 64px !important;
   }
 
   .domino-tile.horizontal.size-normal {
-    width: 70px !important;
-    height: 35px !important;
+    width: 64px !important;
+    height: 32px !important;
   }
 
   .hand-tiles-row {
-    padding: 0.18rem 0.25rem 0.35rem !important;
-    gap: 0.3rem !important;
+    padding: 0.15rem 0.25rem 0.25rem !important;
+    gap: 0.22rem !important;
+    justify-content: safe center !important;
+    margin: 0 auto !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-x !important;
   }
@@ -1237,34 +1384,44 @@ table tbody tr:hover {
 /* Very Narrow Mobile Screens (<= 380px, e.g. iPhone SE / 360px Android) */
 @media (max-width: 380px) {
   .domino-tile.vertical.size-normal {
-    width: 33px !important;
-    height: 66px !important;
+    width: 30px !important;
+    height: 60px !important;
   }
 
   .domino-tile.horizontal.size-normal {
-    width: 66px !important;
-    height: 33px !important;
+    width: 60px !important;
+    height: 30px !important;
   }
 
   .hand-tiles-row {
-    gap: 0.2rem !important;
-  }
-
-  .table-right-sidebar {
-    transform: scale(0.75) !important;
+    gap: 0.18rem !important;
   }
 
   .mobile-turn-pill {
     max-width: 85px !important;
     font-size: 0.72rem !important;
   }
+
+  .virtual-felt-area.players-4 .table-left-sidebar,
+  .virtual-felt-area.players-4 .table-right-sidebar,
+  .virtual-felt-area.players-3 .table-right-sidebar {
+    width: 48px !important;
+    max-width: 50px !important;
+  }
+
+  .opponent-seat.seat-left .domino-tile.horizontal,
+  .opponent-seat.seat-right .domino-tile.horizontal {
+    width: 38px !important;
+    height: 19px !important;
+  }
 }
 
-/* Mobile Landscape (<= 520px height) - Primary Target for Rebalancing */
+/* Mobile Landscape (<= 520px height) - Rebalancing */
 @media (max-height: 520px) and (orientation: landscape) {
   .gameplay-screen {
-    padding-left: env(safe-area-inset-left, 0px) !important;
-    padding-right: env(safe-area-inset-right, 0px) !important;
+    padding-left: max(4px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(4px, env(safe-area-inset-right, 0px)) !important;
+    padding-top: max(2px, env(safe-area-inset-top, 0px)) !important;
     padding-bottom: 0 !important;
   }
 
@@ -1280,37 +1437,17 @@ table tbody tr:hover {
     gap: 0.3rem !important;
   }
 
-  /* Full 100% width felt canvas layout in landscape */
-  .virtual-felt-area {
-    display: flex !important;
-    flex-direction: column !important;
-    position: relative !important;
-  }
-
   .board-felt-canvas {
-    margin: 0.1rem 0.2rem !important;
+    margin: 0.08rem 0.15rem !important;
     border-radius: 0.65rem !important;
   }
 
-  /* Anchor bank in landscape so table gets 100% balanced width with zero left/right wasted space */
-  .table-right-sidebar {
-    position: absolute !important;
-    top: 6px !important;
-    right: 8px !important;
-    padding-right: 0 !important;
-    z-index: 30 !important;
-    transform: scale(0.72) !important;
-    transform-origin: top right !important;
-    pointer-events: auto !important;
-    gap: 0.25rem !important;
-  }
-
   .player-hand-container {
-    padding: 0.12rem 0.4rem max(4px, env(safe-area-inset-bottom, 0px)) !important;
+    padding: 0.1rem 0.35rem max(3px, env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .player-hand-header {
-    margin-bottom: 0.08rem !important;
+    margin-bottom: 0.06rem !important;
   }
 
   .reorder-tip-text {
@@ -1327,26 +1464,36 @@ table tbody tr:hover {
   }
 
   .opponent-seat.seat-top .player-badge-card {
-    padding: 0.12rem 0.55rem !important;
-    gap: 0.3rem !important;
+    padding: 0.1rem 0.5rem !important;
+    gap: 0.25rem !important;
     font-size: 0.72rem !important;
   }
 
   /* Compact hand tiles in landscape mode to maximize table vertical space */
   .domino-tile.vertical.size-normal {
-    width: 30px !important;
-    height: 60px !important;
+    width: 26px !important;
+    height: 52px !important;
   }
 
   .domino-tile.horizontal.size-normal {
-    width: 60px !important;
-    height: 30px !important;
+    width: 52px !important;
+    height: 26px !important;
   }
 
   .hand-tiles-row {
-    padding: 0.12rem 0.3rem !important;
-    gap: 0.22rem !important;
+    padding: 0.1rem 0.25rem !important;
+    gap: 0.18rem !important;
     touch-action: pan-x !important;
+  }
+}
+
+/* Desktop Visibility Defaults */
+@media (min-width: 769px) {
+  .mobile-floating-bank {
+    display: none !important;
+  }
+  .desktop-bank-wrapper {
+    display: flex !important;
   }
 }
 
