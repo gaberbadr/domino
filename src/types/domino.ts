@@ -133,6 +133,25 @@ export interface VoicePeerDto {
   displayName: string;
 }
 
+export interface RtcIceServerDto {
+  urls: string[];
+  username?: string;
+  credential?: string;
+}
+
+export interface VoiceTokenDto {
+  token: string;
+  roomCode: string;
+  roomId: string;
+  voiceRoomId: string;
+  userId: string;
+  userName: string;
+  expiresAtUtc: string;
+  canPublish: boolean;
+  canSubscribe: boolean;
+  iceServers: RtcIceServerDto[];
+}
+
 export interface InvalidDealNotificationDto {
   matchId: string;
   invalidUserId: string;

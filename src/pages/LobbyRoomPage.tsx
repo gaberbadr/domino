@@ -68,7 +68,7 @@ export const LobbyRoomPage: React.FC<LobbyRoomPageProps> = ({
           </div>
 
           {/* Voice Chat widget */}
-          <VoiceChatControls roomCode={room.roomCode} />
+          <VoiceChatControls roomCode={room.roomCode} currentUser={currentUser} />
         </div>
 
         {/* Room Code Share Bar */}

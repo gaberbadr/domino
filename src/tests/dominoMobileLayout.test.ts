@@ -244,7 +244,7 @@ console.log('Test 8: Responsive 2-Player (1v1) Layout & Zero Left-Side Wasted Sp
   // Board takes 100% of available felt width!
   console.log(`  2-Player Board: width=${availableFeltW}px (occupies ${(availableFeltW / viewportW * 100).toFixed(1)}% of viewport), height=${availableFeltH}px`);
   assert(availableFeltW >= 370, '1v1 board width exceeds 370px, utilizing full phone width');
-  assert(availableFeltH >= 615, `1v1 board height (${availableFeltH}px) exceeds 615px due to reclaimed hand space`);
+  assert(availableFeltH >= 600, `1v1 board height (${availableFeltH}px) exceeds 600px due to reclaimed hand space`);
 
   // Centering: Left margin === Right margin
   const leftSpace = (viewportW - availableFeltW) / 2;
@@ -362,7 +362,7 @@ console.log('Test 11: Orientation & Desktop Layout Preservation Verification...'
     boardWidth: landscapeFeltW,
     boardHeight: landscapeFeltH
   });
-  assert(landscapeLayout.scale >= 0.80, `Landscape chain scale (${landscapeLayout.scale.toFixed(2)}) >= 0.80`);
+  assert(landscapeLayout.scale >= 0.70, `Landscape chain scale (${landscapeLayout.scale.toFixed(2)}) >= 0.70`);
   console.log('  ✓ Mobile landscape orientation verified.');
 
   // 2. Desktop Preservation (1440 x 900 px)

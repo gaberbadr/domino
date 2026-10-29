@@ -1,11 +1,12 @@
 import React from 'react';
 import { UserProfileDto } from '../types/domino';
 import { STRINGS } from '../constants/strings';
-import { User, LogIn, LogOut, ShieldCheck, Edit3 } from 'lucide-react';
+import { User, LogIn, LogOut, ShieldCheck, Edit3, Loader2 } from 'lucide-react';
 
 interface NavbarProps {
   user: UserProfileDto | null;
   onlineCount: number;
+  isAuthLoading?: boolean;
   onLoginClick: () => void;
   onLogoutClick: () => void;
   onEditProfileClick: () => void;
@@ -16,6 +17,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   user,
   onlineCount,
+  isAuthLoading = false,
   onLoginClick,
   onLogoutClick,
   onEditProfileClick,
@@ -38,6 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="container navbar-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', width: '100%' }}>
         {/* Brand / Logo */}
         <div
+          className="navbar-brand-wrapper"
           onClick={onLogoClick}
           style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', userSelect: 'none', flexShrink: 0 }}
         >
@@ -58,7 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span style={{ fontSize: '1.2rem' }}>🀄</span>
           </div>
           <div>
-            <h1 style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.02em', margin: 0, whiteSpace: 'nowrap' }}>
+            <h1 className="navbar-brand-title" style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.02em', margin: 0, whiteSpace: 'nowrap' }}>
               {STRINGS.appTitle}
             </h1>
             <span className="navbar-brand-subtitle" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>اللعبة الجماعية أونلاين</span>
@@ -98,14 +101,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Left Side: Auth & User Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+        <div className="navbar-auth-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
           {user ? (
             <>
               {user.isAdmin && (
                 <button
                   className="btn btn-secondary"
                   onClick={onAdminClick}
-                  style={{ padding: '0.4rem 0.65rem', fontSize: '0.8rem', borderColor: 'var(--platinum-border)' }}
+                  style={{ padding: '0.4rem 0.65rem', fontSize: '0.8rem', borderColor: 'var(--platinum-border)', touchAction: 'manipulation' }}
                   title={STRINGS.adminPanel}
                 >
                   <ShieldCheck size={15} color="var(--platinum-primary)" />
@@ -113,7 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               )}
 
-              {/* User profile dropdown / trigger */}
+              {/* User profile badge */}
               <div
                 className="navbar-user-card"
                 style={{
@@ -147,7 +150,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
                 <button
                   onClick={onEditProfileClick}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2, touchAction: 'manipulation' }}
                   title={STRINGS.editProfile}
                 >
                   <Edit3 size={14} />
@@ -156,17 +159,52 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Logout button */}
               <button
+                id="navbar-logout-btn"
                 className="btn btn-secondary"
                 onClick={onLogoutClick}
-                style={{ padding: '0.4rem 0.65rem' }}
+                disabled={isAuthLoading}
+                style={{
+                  padding: '0.45rem 0.75rem',
+                  minHeight: '38px',
+                  minWidth: '38px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: isAuthLoading ? 'not-allowed' : 'pointer',
+                  opacity: isAuthLoading ? 0.6 : 1,
+                  touchAction: 'manipulation'
+                }}
                 title={STRINGS.signOut}
               >
-                <LogOut size={15} />
+                {isAuthLoading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <LogOut size={16} />
+                )}
               </button>
             </>
           ) : (
-            <button className="btn btn-google" onClick={onLoginClick} style={{ padding: '0.45rem 0.85rem' }}>
-              <LogIn size={16} />
+            <button
+              id="navbar-google-login-btn"
+              className="btn btn-google"
+              onClick={onLoginClick}
+              disabled={isAuthLoading}
+              style={{
+                padding: '0.45rem 0.85rem',
+                minHeight: '38px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: isAuthLoading ? 'not-allowed' : 'pointer',
+                opacity: isAuthLoading ? 0.7 : 1,
+                touchAction: 'manipulation'
+              }}
+            >
+              {isAuthLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <LogIn size={16} />
+              )}
               <span className="google-btn-full">{STRINGS.googleSignIn}</span>
               <span className="google-btn-short">دخول</span>
             </button>

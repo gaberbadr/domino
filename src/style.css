@@ -1049,12 +1049,24 @@ table tbody tr:hover {
     box-sizing: border-box !important;
   }
 
-  /* Responsive Navbar on Mobile Portrait: zero overflow, perfectly balanced */
+  /* Responsive Navbar on Mobile Portrait: zero overflow, perfectly balanced, full auth button visibility */
   .navbar .container {
-    padding: 0 0.65rem !important;
-    gap: 0.35rem !important;
+    padding: 0 0.5rem !important;
+    gap: 0.3rem !important;
     flex-wrap: nowrap !important;
+    overflow: visible !important;
+  }
+
+  .navbar-brand-wrapper {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .navbar-brand-title {
+    font-size: 0.98rem !important;
     overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
 
   .navbar-brand-subtitle {
@@ -1062,8 +1074,9 @@ table tbody tr:hover {
   }
 
   .navbar-online-badge {
-    padding: 0.2rem 0.5rem !important;
-    font-size: 0.74rem !important;
+    padding: 0.18rem 0.45rem !important;
+    font-size: 0.72rem !important;
+    flex-shrink: 0 !important;
   }
 
   .navbar-online-badge .online-text-long {
@@ -1072,6 +1085,13 @@ table tbody tr:hover {
 
   .navbar-online-badge .online-text-short {
     display: inline !important;
+  }
+
+  .navbar-auth-actions {
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
   }
 
   .google-btn-full {
@@ -1083,22 +1103,28 @@ table tbody tr:hover {
   }
 
   .btn-google {
-    padding: 0.4rem 0.75rem !important;
+    padding: 0.4rem 0.65rem !important;
     font-size: 0.82rem !important;
-    gap: 0.35rem !important;
+    gap: 0.3rem !important;
+    touch-action: manipulation !important;
+  }
+
+  .btn-google:active, .btn-secondary:active {
+    transform: scale(0.96) !important;
   }
 
   .navbar-user-card {
-    padding: 0.25rem 0.5rem !important;
-    max-width: 130px !important;
+    padding: 0.2rem 0.45rem !important;
+    max-width: 115px !important;
+    flex-shrink: 0 !important;
   }
 
   .navbar-user-name {
-    max-width: 65px !important;
+    max-width: 55px !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
-    font-size: 0.8rem !important;
+    font-size: 0.78rem !important;
   }
 
   .admin-btn-label {
@@ -1498,8 +1524,35 @@ table tbody tr:hover {
 }
 
 /* ==========================================
-   BANK DRAW ANIMATIONS (FLIGHT & ENTRANCE)
+   BANK DRAW INTERACTIVE STYLING & ANIMATIONS
    ========================================== */
+.bank-stack-container {
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s ease;
+}
+
+.bank-stack-container.can-draw {
+  cursor: pointer;
+  animation: bankGlowPulse 2.2s infinite ease-in-out;
+}
+
+.bank-stack-container.can-draw:hover {
+  transform: scale(1.06);
+  filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.75));
+}
+
+.bank-stack-container.can-draw:active {
+  transform: scale(0.94);
+  transition-duration: 0.08s;
+}
+
+@keyframes bankGlowPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(245, 158, 11, 0.7));
+  }
+}
 .flying-draw-tile {
   position: absolute;
   top: 0;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { tokenStorage } from '../services/api';
+import { tokenStorage, scheduleProactiveRefresh } from '../services/api';
 import { RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
 
 interface AuthCallbackPageProps {
@@ -47,6 +47,7 @@ export const AuthCallbackPage: React.FC<AuthCallbackPageProps> = ({
     }
 
     tokenStorage.setTokens(accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt);
+    scheduleProactiveRefresh();
     setStatus('success');
 
     // Clean URL back to root

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { api, tokenStorage } from './services/api';
+import { api, tokenStorage, scheduleProactiveRefresh, stopProactiveRefresh, subscribeAuthChange } from './services/api';
 import { signalRService } from './services/signalr';
+import { webrtcVoiceService } from './services/webrtc';
 import {
   UserProfileDto,
   RoomDto,
@@ -39,11 +40,12 @@ export const App: React.FC = () => {
   const [isJoinPrivateOpen, setIsJoinPrivateOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   // Load user profile
   const loadProfile = useCallback(async () => {
     try {
-      if (tokenStorage.getAccessToken()) {
+      if (tokenStorage.getAccessToken() || tokenStorage.getRefreshToken()) {
         const profile = await api.user.getProfile();
         setCurrentUser(profile);
         return profile;
@@ -53,6 +55,20 @@ export const App: React.FC = () => {
       setCurrentUser(null);
     }
     return null;
+  }, []);
+
+  // Listen to proactive refresh and token expiration changes
+  useEffect(() => {
+    scheduleProactiveRefresh();
+    const unsubscribe = subscribeAuthChange((user) => {
+      if (!user) {
+        setCurrentUser(null);
+      }
+    });
+    return () => {
+      unsubscribe();
+      stopProactiveRefresh();
+    };
   }, []);
 
   // Check URL on initial load for OAuth callback
@@ -176,6 +192,7 @@ export const App: React.FC = () => {
 
         // Room deleted
         conn.on('RoomDeleted', (_code: string, reason: string) => {
+          webrtcVoiceService.leaveSession();
           alert(`تنبيه: ${reason}`);
           setActiveRoom(null);
           setActiveMatch(null);
@@ -184,6 +201,7 @@ export const App: React.FC = () => {
 
         // Player kicked
         conn.on('PlayerKicked', (_code: string, message: string) => {
+          webrtcVoiceService.leaveSession();
           alert(message);
           setActiveRoom(null);
           setActiveMatch(null);
@@ -215,9 +233,10 @@ export const App: React.FC = () => {
     };
   }, [currentUser]);
 
-  // Clean SignalR disconnect on browser tab closure
+  // Clean SignalR disconnect and voice session on browser tab closure
   useEffect(() => {
     const handleTabClosure = () => {
+      webrtcVoiceService.leaveSession();
       signalRService.stop().catch(() => {});
     };
     window.addEventListener('beforeunload', handleTabClosure);
@@ -279,6 +298,7 @@ export const App: React.FC = () => {
   const handleAbandonActiveMatch = async () => {
     if (!recoverableMatch || isProcessingRecovery) return;
     setIsProcessingRecovery(true);
+    webrtcVoiceService.leaveSession();
     try {
       await api.game.leaveRoom(recoverableMatch.roomCode);
       await signalRService.leaveRoomGroup(recoverableMatch.roomCode);
@@ -293,6 +313,7 @@ export const App: React.FC = () => {
 
   // Explicit exit from in-game
   const handleExitGame = async () => {
+    webrtcVoiceService.leaveSession();
     if (activeRoom) {
       try {
         await api.game.leaveRoom(activeRoom.roomCode);
@@ -326,6 +347,7 @@ export const App: React.FC = () => {
 
   // Handle Leave Room
   const handleLeaveRoom = async () => {
+    webrtcVoiceService.leaveSession();
     if (activeRoom) {
       await api.game.leaveRoom(activeRoom.roomCode);
       await signalRService.leaveRoomGroup(activeRoom.roomCode);
@@ -361,6 +383,7 @@ export const App: React.FC = () => {
   const handleDeleteRoom = async () => {
     if (activeRoom) {
       if (confirm('هل أنت متأكد من حذف هذه الأوضة؟')) {
+        webrtcVoiceService.leaveSession();
         await api.game.deleteRoom(activeRoom.roomCode);
         setActiveRoom(null);
         setCurrentPage('home');
@@ -376,6 +399,42 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleGoogleLogin = () => {
+    if (isAuthLoading) return;
+    setIsAuthLoading(true);
+    try {
+      api.auth.initiateGoogleLogin();
+    } catch (err) {
+      console.error('Failed to initiate Google login:', err);
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (isAuthLoading) return;
+    setIsAuthLoading(true);
+    try {
+      await api.auth.logout();
+    } catch (err) {
+      console.warn('Backend logout warning:', err);
+    } finally {
+      try {
+        webrtcVoiceService.leaveSession();
+        await signalRService.stop();
+      } catch (err) {
+        console.warn('SignalR stop warning:', err);
+      }
+      tokenStorage.clear();
+      setCurrentUser(null);
+      setActiveMatch(null);
+      setActiveRoom(null);
+      setPrivateState(null);
+      setRecoverableMatch(null);
+      setCurrentPage('home');
+      setIsAuthLoading(false);
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <DominoGlobalDefs />
@@ -384,13 +443,9 @@ export const App: React.FC = () => {
         <Navbar
           user={currentUser}
           onlineCount={onlineCount}
-          onLoginClick={() => api.auth.initiateGoogleLogin()}
-          onLogoutClick={async () => {
-            await api.auth.logout();
-            await signalRService.stop();
-            setCurrentUser(null);
-            setCurrentPage('home');
-          }}
+          isAuthLoading={isAuthLoading}
+          onLoginClick={handleGoogleLogin}
+          onLogoutClick={handleLogout}
           onEditProfileClick={() => setIsProfileOpen(true)}
           onAdminClick={() => setIsAdminOpen(true)}
           onLogoClick={() => {
@@ -415,10 +470,11 @@ export const App: React.FC = () => {
           <HomePage
             user={currentUser}
             onlineCount={onlineCount}
+            isAuthLoading={isAuthLoading}
             onCreateRoomClick={() => setIsCreateRoomOpen(true)}
             onJoinPrivateClick={() => setIsJoinPrivateOpen(true)}
             onJoinRoom={(code, pwd) => handleJoinRoom(code, pwd)}
-            onLoginClick={() => api.auth.initiateGoogleLogin()}
+            onLoginClick={handleGoogleLogin}
             onAdminClick={() => setIsAdminOpen(true)}
           />
         )}

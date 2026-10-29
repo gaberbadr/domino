@@ -14,7 +14,8 @@ import {
   MatchEndResultDto,
   LegalMoveDto,
   RoundOutcomeType,
-  GameMode
+  GameMode,
+  MatchStatus
 } from '../types/domino';
 import { computeActiveLegalMoves } from '../utils/dominoRules';
 import { GameBoard } from '../components/GameBoard';
@@ -303,9 +304,20 @@ export const GamePage: React.FC<GamePageProps> = ({
       }
       setChoiceTile(null);
       setAgreedCount(0);
+      setIsDrawing(false);
+      setIsSubmittingMove(false);
       setRoundEndResult(result);
+      setPrivateState((prev) => ({
+        ...prev,
+        legalMoves: [],
+        canDraw: false,
+        canSkip: false
+      }));
       setMatch((prev) => ({
         ...prev,
+        status: result.isMatchCompleted ? MatchStatus.Completed : MatchStatus.RoundEnded,
+        currentTurnUserId: undefined,
+        turnDeadlineUtc: undefined,
         team1Score: result.team1ScoreAfter,
         team2Score: result.team2ScoreAfter,
         roundNumber: result.roundNumber,
@@ -420,7 +432,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
   // Execute Move on Server
   const executeMove = async (tileId: number, chosenEnd?: BoardEnd) => {
-    if (isSubmittingMove) return;
+    if (isSubmittingMove || match.status !== MatchStatus.Active || roundEndResult !== null) return;
     setIsSubmittingMove(true);
     try {
       await api.game.playTile(match.id, tileId, chosenEnd);
@@ -433,7 +445,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
   // Tap-to-play with endpoint selection
   const handleTileClick = async (tile: DominoTile) => {
-    if (!isMyTurn || isSubmittingMove) return;
+    if (!isMyTurn || isSubmittingMove || match.status !== MatchStatus.Active || roundEndResult !== null) return;
 
     // Tapping the currently selected choice tile toggles selection off
     if (choiceTile?.id === tile.id) {
@@ -460,7 +472,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
   // Handle Drag-to-Drop on Board End
   const handleDropTileOnEnd = async (tileId: number, end: BoardEnd) => {
-    if (match.currentTurnUserId !== currentUser.userId || isSubmittingMove) return;
+    if (match.currentTurnUserId !== currentUser.userId || isSubmittingMove || match.status !== MatchStatus.Active || roundEndResult !== null) return;
 
     const legalMove = activeLegalMoves.find((m) => m.tile.id === tileId);
     if (!legalMove) {
@@ -479,7 +491,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
   // Handle Draw Tile
   const handleDraw = async () => {
-    if (isDrawing || !privateState.canDraw) return;
+    if (isDrawing || !privateState.canDraw || match.status !== MatchStatus.Active || roundEndResult !== null) return;
     setIsDrawing(true);
     try {
       await api.game.drawTile(match.id);
@@ -491,6 +503,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
   // Handle Skip
   const handleSkip = async () => {
+    if (!privateState.canSkip || match.status !== MatchStatus.Active || roundEndResult !== null) return;
     try {
       await api.game.skipTurn(match.id);
     } catch (err: any) {

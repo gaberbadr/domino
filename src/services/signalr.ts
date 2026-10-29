@@ -1,5 +1,5 @@
 import * as signalR from '@microsoft/signalr';
-import { tokenStorage } from './api';
+import { tokenStorage, isAccessTokenExpired, refreshAccessToken } from './api';
 import { appConfig } from '../config/appConfig';
 
 const HUB_URL = appConfig.hubUrl;
@@ -28,7 +28,13 @@ class SignalRService {
     try {
       this.connection = new signalR.HubConnectionBuilder()
         .withUrl(HUB_URL, {
-          accessTokenFactory: () => tokenStorage.getAccessToken() || '',
+          accessTokenFactory: async () => {
+            if (isAccessTokenExpired(30)) {
+              const fresh = await refreshAccessToken();
+              if (fresh) return fresh;
+            }
+            return tokenStorage.getAccessToken() || '';
+          },
           skipNegotiation: false,
           transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling
         })
@@ -69,9 +75,9 @@ class SignalRService {
     }
   }
 
-  public async joinVoice(roomCode: string): Promise<void> {
+  public async joinVoice(roomCode: string, voiceToken?: string): Promise<void> {
     if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
-      await this.connection.invoke('JoinVoice', roomCode);
+      await this.connection.invoke('JoinVoice', roomCode, voiceToken || null);
     }
   }
 
@@ -81,21 +87,21 @@ class SignalRService {
     }
   }
 
-  public async sendOffer(targetUserId: string, sdp: string): Promise<void> {
+  public async sendOffer(roomCode: string, targetUserId: string, sdp: string): Promise<void> {
     if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
-      await this.connection.invoke('SendOffer', targetUserId, sdp);
+      await this.connection.invoke('SendOffer', roomCode, targetUserId, sdp);
     }
   }
 
-  public async sendAnswer(targetUserId: string, sdp: string): Promise<void> {
+  public async sendAnswer(roomCode: string, targetUserId: string, sdp: string): Promise<void> {
     if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
-      await this.connection.invoke('SendAnswer', targetUserId, sdp);
+      await this.connection.invoke('SendAnswer', roomCode, targetUserId, sdp);
     }
   }
 
-  public async sendIceCandidate(targetUserId: string, candidate: string): Promise<void> {
+  public async sendIceCandidate(roomCode: string, targetUserId: string, candidate: string): Promise<void> {
     if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
-      await this.connection.invoke('SendIceCandidate', targetUserId, candidate);
+      await this.connection.invoke('SendIceCandidate', roomCode, targetUserId, candidate);
     }
   }
 

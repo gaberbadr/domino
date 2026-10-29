@@ -3,11 +3,12 @@ import { api } from '../services/api';
 import { GameMode, RoomDto, UserProfileDto } from '../types/domino';
 import { STRINGS } from '../constants/strings';
 import { RoomPasswordModal } from '../components/RoomPasswordModal';
-import { PlusCircle, KeyRound, Users, Play, RefreshCw, Lock, Sparkles, AlertCircle } from 'lucide-react';
+import { PlusCircle, KeyRound, Users, Play, RefreshCw, Lock, Sparkles, AlertCircle, LogIn, Loader2 } from 'lucide-react';
 
 interface HomePageProps {
   user: UserProfileDto | null;
   onlineCount: number;
+  isAuthLoading?: boolean;
   onCreateRoomClick: () => void;
   onJoinPrivateClick: () => void;
   onJoinRoom: (roomCode: string, password?: string) => Promise<void>;
@@ -18,6 +19,7 @@ interface HomePageProps {
 export const HomePage: React.FC<HomePageProps> = ({
   user,
   onlineCount,
+  isAuthLoading = false,
   onCreateRoomClick,
   onJoinPrivateClick,
   onJoinRoom,
@@ -106,6 +108,32 @@ export const HomePage: React.FC<HomePageProps> = ({
 
           {/* Main Action Buttons */}
           <div className="home-hero-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center' }}>
+            {!user && (
+              <button
+                id="home-hero-google-btn"
+                className="btn btn-google"
+                style={{
+                  padding: '0.85rem 1.85rem',
+                  fontSize: '1.05rem',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.55rem',
+                  touchAction: 'manipulation'
+                }}
+                disabled={isAuthLoading}
+                onClick={onLoginClick}
+              >
+                {isAuthLoading ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  <LogIn size={20} />
+                )}
+                <span>{STRINGS.googleSignIn}</span>
+              </button>
+            )}
+
             <button
               className="btn btn-primary"
               style={{ padding: '0.85rem 1.85rem', fontSize: '1.05rem' }}
