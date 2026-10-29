@@ -1,11 +1,12 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { GameMatchDto, BoardPlacedTile, GameMode, BoardEnd, MatchStatus } from '../types/domino';
 import { DominoTileView } from './DominoTileView';
 import { ConcealedHandView } from './ConcealedHandView';
 import { DominoBankView } from './DominoBankView';
 import { ExitConfirmationModal } from './ExitConfirmationModal';
+import { calculateBoardLayout } from '../services/dominoLayoutEngine';
 import { STRINGS } from '../constants/strings';
-import { Clock, SkipForward, Hand, LogOut, Volume2, Sliders, CornerDownLeft, CornerDownRight } from 'lucide-react';
+import { Clock, SkipForward, Hand, LogOut, Volume2, Sliders } from 'lucide-react';
 
 interface GameBoardProps {
   match: GameMatchDto;
@@ -41,6 +42,29 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const [dragOverEnd, setDragOverEnd] = useState<BoardEnd | null>(null);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
+  const boardFeltRef = useRef<HTMLDivElement>(null);
+  const [boardDimensions, setBoardDimensions] = useState<{ width: number; height: number }>({
+    width: 800,
+    height: 500
+  });
+
+  // Track board felt container size for dynamic responsive layout
+  useEffect(() => {
+    if (!boardFeltRef.current) return;
+    const updateDims = () => {
+      if (boardFeltRef.current) {
+        const { clientWidth, clientHeight } = boardFeltRef.current;
+        if (clientWidth > 0 && clientHeight > 0) {
+          setBoardDimensions({ width: clientWidth, height: clientHeight });
+        }
+      }
+    };
+    updateDims();
+    const ro = new ResizeObserver(updateDims);
+    ro.observe(boardFeltRef.current);
+    return () => ro.disconnect();
+  }, []);
+
   const isMyTurn = match.currentTurnUserId === currentUserId;
   const currentTurnPlayer = match.players.find((p) => p.userId === match.currentTurnUserId);
 
@@ -52,6 +76,22 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   let topPlayer = totalPlayers > 1 ? match.players[(myIndex + (totalPlayers === 3 ? 2 : totalPlayers === 4 ? 2 : 1)) % totalPlayers] : null;
   let rightPlayer = totalPlayers >= 3 ? match.players[(myIndex + 1) % totalPlayers] : null;
   let leftPlayer = totalPlayers === 4 ? match.players[(myIndex + 3) % totalPlayers] : null;
+
+  // Calculate continuous domino chain layout
+  const layoutResult = useMemo(() => {
+    return calculateBoardLayout({
+      chain: match.boardChain,
+      openLeft: match.openLeft ?? null,
+      openRight: match.openRight ?? null,
+      boardWidth: boardDimensions.width,
+      boardHeight: boardDimensions.height
+    });
+  }, [match.boardChain, match.openLeft, match.openRight, boardDimensions]);
+
+  // Max order index to identify newest played tile
+  const maxOrderIndex = match.boardChain.length > 0
+    ? Math.max(...match.boardChain.map((t) => t.orderIndex))
+    : -1;
 
   // Turn timer countdown
   useEffect(() => {
@@ -111,12 +151,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     }
   };
 
-  // Chunk boardChain into snake rows (6-7 tiles per row) so entire chain fits on screen
-  const TILES_PER_ROW = 7;
-  const chainRows: BoardPlacedTile[][] = [];
-  for (let i = 0; i < match.boardChain.length; i += TILES_PER_ROW) {
-    chainRows.push(match.boardChain.slice(i, i + TILES_PER_ROW));
-  }
+
 
   return (
     <div
@@ -342,18 +377,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           </div>
         )}
 
-        {/* Center Felt Board with Dynamic Multi-Row Snake Layout */}
+        {/* Center Felt Board with Continuous Domino Chain Layout */}
         <div
+          ref={boardFeltRef}
           className="domino-board-felt"
           style={{
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '1rem 1.5rem',
+            padding: '1rem',
             position: 'relative',
-            overflowY: 'auto',
-            overflowX: 'hidden',
+            overflow: 'auto',
             width: '100%',
             height: '100%'
           }}
@@ -381,96 +415,85 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             </div>
           ) : (
             <div
-              className="snake-board-container"
+              className="continuous-domino-canvas"
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.65rem',
-                alignItems: 'center',
-                justifyContent: 'center',
-                maxWidth: '100%',
-                margin: 'auto'
+                position: 'relative',
+                width: `${layoutResult.boundingBox.width}px`,
+                height: `${layoutResult.boundingBox.height}px`,
+                transform: `scale(${layoutResult.scale})`,
+                transformOrigin: 'center center',
+                transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                flexShrink: 0
               }}
             >
-              {chainRows.map((rowTiles, rowIdx) => {
-                const isOddRow = rowIdx % 2 === 1; // Odd rows run in reverse snake direction
-                const isFirstRow = rowIdx === 0;
-                const isLastRow = rowIdx === chainRows.length - 1;
+              {/* Left End Drop Zone */}
+              {layoutResult.leftDropZone && (
+                <div
+                  className={`board-end-drop-zone left-zone ${dragOverEnd === BoardEnd.Left ? 'active-drop' : ''}`}
+                  onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Left)}
+                  onDrop={(e) => handleBoardDrop(e, BoardEnd.Left)}
+                  style={{
+                    position: 'absolute',
+                    left: `${layoutResult.leftDropZone.x - layoutResult.boundingBox.minX}px`,
+                    top: `${layoutResult.leftDropZone.y - layoutResult.boundingBox.minY}px`,
+                    width: `${layoutResult.leftDropZone.width}px`,
+                    height: `${layoutResult.leftDropZone.height}px`
+                  }}
+                  title={`طرف مفتوح: ${layoutResult.leftDropZone.openPip}`}
+                >
+                  <span className="end-badge">طرف {layoutResult.leftDropZone.openPip}</span>
+                </div>
+              )}
 
+              {/* Placed Continuous Domino Tiles */}
+              {layoutResult.tiles.map((placed) => {
+                const isNewest = placed.orderIndex === maxOrderIndex && match.boardChain.length > 1;
                 return (
                   <div
-                    key={`row-${rowIdx}`}
+                    key={`${placed.tileId}-${placed.orderIndex}`}
+                    className="chain-tile-container"
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      flexDirection: isOddRow ? 'row-reverse' : 'row',
-                      gap: '0.35rem',
-                      position: 'relative'
+                      position: 'absolute',
+                      left: `${placed.x - layoutResult.boundingBox.minX}px`,
+                      top: `${placed.y - layoutResult.boundingBox.minY}px`,
+                      width: `${placed.width}px`,
+                      height: `${placed.height}px`,
+                      filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.75))',
+                      transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
                     }}
                   >
-                    {/* Open Left End Drop Zone at start of Row 0 */}
-                    {isFirstRow && match.openLeft !== null && (
-                      <div
-                        className={`board-end-drop-zone left-zone ${dragOverEnd === BoardEnd.Left ? 'active-drop' : ''}`}
-                        onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Left)}
-                        onDrop={(e) => handleBoardDrop(e, BoardEnd.Left)}
-                        title={`طرف مفتوح: ${match.openLeft}`}
-                      >
-                        <span className="end-badge">طرف {match.openLeft}</span>
-                      </div>
-                    )}
-
-                    {/* Tiles in this Snake Row */}
-                    {rowTiles.map((tile, tileIdx) => {
-                      const isDouble = tile.leftPip === tile.rightPip;
-                      return (
-                        <div
-                          key={`${tile.tileId}-${rowIdx}-${tileIdx}`}
-                          className="chain-tile-container"
-                          style={{
-                            transform: isDouble ? 'scale(1.05)' : 'none',
-                            filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.7))',
-                            transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                          }}
-                        >
-                          <DominoTileView
-                            tile={{ id: tile.tileId, end1: tile.leftPip, end2: tile.rightPip }}
-                            orientation={isDouble ? 'vertical' : 'horizontal'}
-                            size={match.boardChain.length > 14 ? 'small' : 'normal'}
-                          />
-                        </div>
-                      );
-                    })}
-
-                    {/* Turn Connector to next row if not last row */}
-                    {!isLastRow && (
-                      <div
-                        style={{
-                          color: 'rgba(229, 231, 235, 0.4)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '0 0.2rem'
-                        }}
-                        title="التفاف السلسلة"
-                      >
-                        {isOddRow ? <CornerDownLeft size={20} /> : <CornerDownRight size={20} />}
-                      </div>
-                    )}
-
-                    {/* Open Right End Drop Zone at end of Last Row */}
-                    {isLastRow && match.openRight !== null && (
-                      <div
-                        className={`board-end-drop-zone right-zone ${dragOverEnd === BoardEnd.Right ? 'active-drop' : ''}`}
-                        onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Right)}
-                        onDrop={(e) => handleBoardDrop(e, BoardEnd.Right)}
-                        title={`طرف مفتوح: ${match.openRight}`}
-                      >
-                        <span className="end-badge">طرف {match.openRight}</span>
-                      </div>
-                    )}
+                    <DominoTileView
+                      tile={{
+                        id: placed.tileId,
+                        end1: placed.displayEnd1,
+                        end2: placed.displayEnd2
+                      }}
+                      orientation={placed.orientation}
+                      className={isNewest ? 'newly-played' : ''}
+                      style={{ width: '100%', height: '100%' }}
+                    />
                   </div>
                 );
               })}
+
+              {/* Right End Drop Zone */}
+              {layoutResult.rightDropZone && (
+                <div
+                  className={`board-end-drop-zone right-zone ${dragOverEnd === BoardEnd.Right ? 'active-drop' : ''}`}
+                  onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Right)}
+                  onDrop={(e) => handleBoardDrop(e, BoardEnd.Right)}
+                  style={{
+                    position: 'absolute',
+                    left: `${layoutResult.rightDropZone.x - layoutResult.boundingBox.minX}px`,
+                    top: `${layoutResult.rightDropZone.y - layoutResult.boundingBox.minY}px`,
+                    width: `${layoutResult.rightDropZone.width}px`,
+                    height: `${layoutResult.rightDropZone.height}px`
+                  }}
+                  title={`طرف مفتوح: ${layoutResult.rightDropZone.openPip}`}
+                >
+                  <span className="end-badge">طرف {layoutResult.rightDropZone.openPip}</span>
+                </div>
+              )}
             </div>
           )}
         </div>

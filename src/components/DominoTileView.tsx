@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { DominoTile } from '../types/domino';
 
 export interface DominoTileViewProps {
@@ -20,29 +20,68 @@ export interface DominoTileViewProps {
   className?: string;
 }
 
-// Explicit, deterministic standard pip slot maps for 0–6 in 3x3 grid:
-// 0: top-left,   1: top-center,   2: top-right
-// 3: mid-left,   4: center,       5: mid-right
-// 6: bot-left,   7: bot-center,   8: bot-right
-const VERTICAL_PIP_MAP: Record<number, number[]> = {
-  0: [],
-  1: [4],
-  2: [0, 8],
-  3: [0, 4, 8],
-  4: [0, 2, 6, 8],
-  5: [0, 2, 4, 6, 8],
-  6: [0, 2, 3, 5, 6, 8] // 2 vertical columns of 3
-};
+interface PipCoord {
+  x: number;
+  y: number;
+}
 
-const HORIZONTAL_PIP_MAP: Record<number, number[]> = {
-  0: [],
-  1: [4],
-  2: [0, 8],
-  3: [0, 4, 8],
-  4: [0, 2, 6, 8],
-  5: [0, 2, 4, 6, 8],
-  6: [0, 1, 2, 6, 7, 8] // 2 horizontal rows of 3
-};
+/**
+ * Standard Double-Six Domino Pip Coordinates within a 100x100 half-square.
+ * When isHalfVertical is true (vertical tile), 6 pips render as 2 vertical columns of 3.
+ * When isHalfVertical is false (horizontal tile), 6 pips render as 2 horizontal rows of 3.
+ */
+function getPipCoordinates(count: number, isHalfVertical: boolean, offsetX: number, offsetY: number): PipCoord[] {
+  const clamped = Math.max(0, Math.min(6, Math.floor(count)));
+  const base: PipCoord[] = [];
+
+  switch (clamped) {
+    case 0:
+      break;
+    case 1:
+      base.push({ x: 50, y: 50 });
+      break;
+    case 2:
+      base.push({ x: 28, y: 28 }, { x: 72, y: 72 });
+      break;
+    case 3:
+      base.push({ x: 28, y: 28 }, { x: 50, y: 50 }, { x: 72, y: 72 });
+      break;
+    case 4:
+      base.push({ x: 28, y: 28 }, { x: 72, y: 28 }, { x: 28, y: 72 }, { x: 72, y: 72 });
+      break;
+    case 5:
+      base.push({ x: 28, y: 28 }, { x: 72, y: 28 }, { x: 50, y: 50 }, { x: 28, y: 72 }, { x: 72, y: 72 });
+      break;
+    case 6:
+      if (isHalfVertical) {
+        // Two vertical columns of 3
+        base.push(
+          { x: 28, y: 26 },
+          { x: 28, y: 50 },
+          { x: 28, y: 74 },
+          { x: 72, y: 26 },
+          { x: 72, y: 50 },
+          { x: 72, y: 74 }
+        );
+      } else {
+        // Two horizontal rows of 3
+        base.push(
+          { x: 26, y: 28 },
+          { x: 50, y: 28 },
+          { x: 74, y: 28 },
+          { x: 26, y: 72 },
+          { x: 50, y: 72 },
+          { x: 74, y: 72 }
+        );
+      }
+      break;
+  }
+
+  return base.map((p) => ({
+    x: p.x + offsetX,
+    y: p.y + offsetY
+  }));
+}
 
 export const DominoTileView: React.FC<DominoTileViewProps> = ({
   tile,
@@ -62,58 +101,154 @@ export const DominoTileView: React.FC<DominoTileViewProps> = ({
   style = {},
   className = ''
 }) => {
-  // Render pip dots for a half using explicit standard mapping
-  const renderPips = (count: number) => {
-    const clampedCount = Math.max(0, Math.min(6, count));
-    const activeIndices = orientation === 'vertical'
-      ? VERTICAL_PIP_MAP[clampedCount] || []
-      : HORIZONTAL_PIP_MAP[clampedCount] || [];
+  const instanceId = useId().replace(/:/g, '_');
+  const isVertical = orientation === 'vertical';
 
-    const pipSizeClass =
-      size === 'tiny' ? 'pip-tiny' : size === 'small' ? 'pip-small' : size === 'large' ? 'pip-large' : 'pip-normal';
+  const bodyGradId = `tile-body-${instanceId}`;
+  const brassGradId = `tile-brass-${instanceId}`;
+  const pipGradId = `tile-pip-${instanceId}`;
+  const concealedGradId = `tile-concealed-${instanceId}`;
 
-    return (
-      <div className="domino-tile-half" data-pips={clampedCount}>
-        {Array.from({ length: 9 }).map((_, index) => {
-          const hasPip = activeIndices.includes(index);
-          return (
-            <div
-              key={index}
-              style={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              {hasPip && <div className={`domino-pip ${pipSizeClass}`} />}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  // Shared SVG Gradients
+  const renderDefs = () => (
+    <defs>
+      {/* Luxury Ivory/Resin Tile Body Gradient */}
+      <linearGradient id={bodyGradId} x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fcfaf5" />
+        <stop offset="45%" stopColor="#f6f2e8" />
+        <stop offset="100%" stopColor="#ebe4d4" />
+      </linearGradient>
 
-  // Concealed Tile Back Design (Islamic geometric engraving & brass center pin)
+      {/* Realistic Metallic Brass Pin Gradient */}
+      <linearGradient id={brassGradId} x1="20%" y1="20%" x2="80%" y2="80%">
+        <stop offset="0%" stopColor="#ffe699" />
+        <stop offset="40%" stopColor="#d4af37" />
+        <stop offset="70%" stopColor="#a37c22" />
+        <stop offset="100%" stopColor="#694e0e" />
+      </linearGradient>
+
+      {/* Recessed Inlaid Obsidian/Espresso Pip Gradient */}
+      <radialGradient id={pipGradId} cx="35%" cy="35%" r="65%">
+        <stop offset="0%" stopColor="#3a2f26" />
+        <stop offset="70%" stopColor="#18120c" />
+        <stop offset="100%" stopColor="#080604" />
+      </radialGradient>
+
+      {/* Concealed Tile Ebony/Rosewood Wood Back Gradient */}
+      <linearGradient id={concealedGradId} x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#2c1d14" />
+        <stop offset="50%" stopColor="#1e130c" />
+        <stop offset="100%" stopColor="#110a06" />
+      </linearGradient>
+    </defs>
+  );
+
+  // Concealed Tile (Face Down)
   if (isConcealed || !tile) {
     return (
       <div
         className={`domino-tile concealed ${orientation} size-${size} ${className}`}
-        style={{ ...style }}
+        style={style}
         title="ورقة دومينو مقلوبة"
       >
-        <div className="domino-back-pattern">
-          <div className="domino-back-inner">
-            <div className="domino-back-ornament" />
-            <div className="domino-brass-pin" />
-          </div>
-        </div>
+        <svg
+          viewBox={isVertical ? '0 0 100 200' : '0 0 200 100'}
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="xMidYMid meet"
+          className="domino-tile-svg"
+        >
+          {renderDefs()}
+          {isVertical ? (
+            <>
+              {/* Outer Tile Rect */}
+              <rect
+                x="1.5"
+                y="1.5"
+                width="97"
+                height="197"
+                rx="9"
+                ry="9"
+                fill={`url(#${concealedGradId})`}
+                stroke="#84572c"
+                strokeWidth="2"
+              />
+              {/* Inner Decorative Dashed Border */}
+              <rect
+                x="7"
+                y="7"
+                width="86"
+                height="186"
+                rx="6"
+                ry="6"
+                fill="none"
+                stroke="rgba(212, 175, 55, 0.45)"
+                strokeWidth="1.2"
+                strokeDasharray="4 2.5"
+              />
+              {/* Central Diamond Motif */}
+              <polygon
+                points="50,86 64,100 50,114 36,100"
+                fill="none"
+                stroke="rgba(212, 175, 55, 0.6)"
+                strokeWidth="1.5"
+              />
+              {/* Central Brass Pivot */}
+              <circle cx="50" cy="100" r="4.5" fill="#3a2f1d" />
+              <circle cx="50" cy="100" r="3.5" fill={`url(#${brassGradId})`} />
+              <circle cx="48.5" cy="98.5" r="1.2" fill="#fff" opacity="0.8" />
+            </>
+          ) : (
+            <>
+              {/* Horizontal Concealed Rect */}
+              <rect
+                x="1.5"
+                y="1.5"
+                width="197"
+                height="97"
+                rx="9"
+                ry="9"
+                fill={`url(#${concealedGradId})`}
+                stroke="#84572c"
+                strokeWidth="2"
+              />
+              <rect
+                x="7"
+                y="7"
+                width="186"
+                height="86"
+                rx="6"
+                ry="6"
+                fill="none"
+                stroke="rgba(212, 175, 55, 0.45)"
+                strokeWidth="1.2"
+                strokeDasharray="4 2.5"
+              />
+              <polygon
+                points="100,36 114,50 100,64 86,50"
+                fill="none"
+                stroke="rgba(212, 175, 55, 0.6)"
+                strokeWidth="1.5"
+              />
+              <circle cx="100" cy="50" r="4.5" fill="#3a2f1d" />
+              <circle cx="100" cy="50" r="3.5" fill={`url(#${brassGradId})`} />
+              <circle cx="98.5" cy="48.5" r="1.2" fill="#fff" opacity="0.8" />
+            </>
+          )}
+        </svg>
       </div>
     );
   }
 
   const isDouble = tile.end1 === tile.end2;
+
+  // Calculate Pip Coordinates for Both Halves
+  const half1Pips = isVertical
+    ? getPipCoordinates(tile.end1, true, 0, 0)
+    : getPipCoordinates(tile.end1, false, 0, 0);
+
+  const half2Pips = isVertical
+    ? getPipCoordinates(tile.end2, true, 0, 100)
+    : getPipCoordinates(tile.end2, false, 100, 0);
 
   return (
     <div
@@ -134,11 +269,104 @@ export const DominoTileView: React.FC<DominoTileViewProps> = ({
       }}
       title={`[${tile.end1}|${tile.end2}]`}
     >
-      {renderPips(tile.end1)}
-      <div className={orientation === 'vertical' ? 'domino-divider-vertical' : 'domino-divider-horizontal'}>
-        <div className="domino-brass-pin" />
-      </div>
-      {renderPips(tile.end2)}
+      <svg
+        viewBox={isVertical ? '0 0 100 200' : '0 0 200 100'}
+        xmlns="http://www.w3.org/2000/svg"
+        preserveAspectRatio="xMidYMid meet"
+        className="domino-tile-svg"
+      >
+        {renderDefs()}
+
+        {isVertical ? (
+          <>
+            {/* Tile Base */}
+            <rect
+              x="1.5"
+              y="1.5"
+              width="97"
+              height="197"
+              rx="9"
+              ry="9"
+              fill={`url(#${bodyGradId})`}
+              stroke="#cfc7b6"
+              strokeWidth="1.5"
+            />
+            {/* Inner Bevel Light */}
+            <rect
+              x="3.5"
+              y="3.5"
+              width="93"
+              height="193"
+              rx="7"
+              ry="7"
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.9)"
+              strokeWidth="1"
+            />
+
+            {/* Engraved Horizontal Dividing Line */}
+            <line x1="8" y1="100" x2="92" y2="100" stroke="#7e766a" strokeWidth="2.5" strokeLinecap="round" />
+            <line x1="8" y1="101.5" x2="92" y2="101.5" stroke="rgba(255, 255, 255, 0.75)" strokeWidth="1" strokeLinecap="round" />
+
+            {/* Central Brass Spinner Pin */}
+            <circle cx="50" cy="100" r="4.5" fill="#3a2f1d" />
+            <circle cx="50" cy="100" r="3.5" fill={`url(#${brassGradId})`} />
+            <circle cx="48.5" cy="98.5" r="1.2" fill="#fff" opacity="0.85" />
+          </>
+        ) : (
+          <>
+            {/* Horizontal Tile Base */}
+            <rect
+              x="1.5"
+              y="1.5"
+              width="197"
+              height="97"
+              rx="9"
+              ry="9"
+              fill={`url(#${bodyGradId})`}
+              stroke="#cfc7b6"
+              strokeWidth="1.5"
+            />
+            {/* Inner Bevel Light */}
+            <rect
+              x="3.5"
+              y="3.5"
+              width="193"
+              height="93"
+              rx="7"
+              ry="7"
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.9)"
+              strokeWidth="1"
+            />
+
+            {/* Engraved Vertical Dividing Line */}
+            <line x1="100" y1="8" x2="100" y2="92" stroke="#7e766a" strokeWidth="2.5" strokeLinecap="round" />
+            <line x1="101.5" y1="8" x2="101.5" y2="92" stroke="rgba(255, 255, 255, 0.75)" strokeWidth="1" strokeLinecap="round" />
+
+            {/* Central Brass Spinner Pin */}
+            <circle cx="100" cy="50" r="4.5" fill="#3a2f1d" />
+            <circle cx="100" cy="50" r="3.5" fill={`url(#${brassGradId})`} />
+            <circle cx="98.5" cy="48.5" r="1.2" fill="#fff" opacity="0.85" />
+          </>
+        )}
+
+        {/* Render Half 1 Pips */}
+        {half1Pips.map((p, idx) => (
+          <g key={`h1-${idx}`}>
+            <circle cx={p.x} cy={p.y} r="7.2" fill={`url(#${pipGradId})`} />
+            <circle cx={p.x - 1.8} cy={p.y - 1.8} r="2.2" fill="#fff" opacity="0.18" />
+          </g>
+        ))}
+
+        {/* Render Half 2 Pips */}
+        {half2Pips.map((p, idx) => (
+          <g key={`h2-${idx}`}>
+            <circle cx={p.x} cy={p.y} r="7.2" fill={`url(#${pipGradId})`} />
+            <circle cx={p.x - 1.8} cy={p.y - 1.8} r="2.2" fill="#fff" opacity="0.18" />
+          </g>
+        ))}
+      </svg>
     </div>
   );
 };

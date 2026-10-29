@@ -332,78 +332,84 @@ body {
    ========================================== */
 .domino-tile {
   position: relative;
-  background: var(--tile-bg);
-  border: 1.5px solid var(--tile-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
   cursor: default;
   user-select: none;
-  transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-  display: flex;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease, filter 0.22s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
 }
 
-/* Size Variants */
+.domino-tile-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Size Variants (Exact 1:2 and 2:1 Proportions) */
 .domino-tile.vertical.size-normal {
   width: 48px;
-  height: 94px;
+  height: 96px;
 }
 .domino-tile.horizontal.size-normal {
-  width: 94px;
+  width: 96px;
   height: 48px;
 }
 
 .domino-tile.vertical.size-small {
-  width: 38px;
-  height: 76px;
+  width: 36px;
+  height: 72px;
 }
 .domino-tile.horizontal.size-small {
-  width: 76px;
-  height: 38px;
+  width: 72px;
+  height: 36px;
 }
 
 .domino-tile.vertical.size-tiny {
-  width: 28px;
-  height: 56px;
+  width: 26px;
+  height: 52px;
 }
 .domino-tile.horizontal.size-tiny {
-  width: 56px;
-  height: 28px;
+  width: 52px;
+  height: 26px;
 }
 
 .domino-tile.vertical.size-large {
   width: 58px;
-  height: 114px;
+  height: 116px;
 }
 .domino-tile.horizontal.size-large {
-  width: 114px;
+  width: 116px;
   height: 58px;
 }
 
 /* Playable, Selected & Shake States */
 .domino-tile.playable {
   cursor: pointer;
-  border-color: #10b981;
-  box-shadow: 0 0 14px rgba(16, 185, 129, 0.8), 0 6px 14px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 2px #10b981, 0 0 16px rgba(16, 185, 129, 0.85), 0 6px 14px rgba(0, 0, 0, 0.5);
   animation: tileGlow 2.5s infinite ease-in-out;
 }
 
 .domino-tile.playable:hover {
   transform: translateY(-8px) scale(1.06);
-  border-color: #34d399;
-  box-shadow: 0 0 24px rgba(16, 185, 129, 1), 0 12px 20px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 2.5px #34d399, 0 0 24px rgba(16, 185, 129, 1), 0 12px 20px rgba(0, 0, 0, 0.6);
   z-index: 25;
 }
 
 .domino-tile.selected {
-  border-color: var(--platinum-silver);
-  box-shadow: 0 0 20px var(--platinum-glow), 0 8px 16px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 2.5px var(--platinum-silver), 0 0 20px var(--platinum-glow), 0 8px 16px rgba(0, 0, 0, 0.6);
   transform: translateY(-10px) scale(1.08);
 }
 
 .domino-tile.disabled {
-  opacity: 0.5;
-  filter: grayscale(40%);
+  opacity: 0.45;
+  filter: grayscale(45%);
 }
 
 .domino-tile.dragging {
@@ -419,64 +425,53 @@ body {
 }
 
 .domino-tile.tile-rejected-shake {
-  border-color: #ef4444 !important;
-  box-shadow: 0 0 18px rgba(239, 68, 68, 0.95), 0 6px 14px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: 0 0 0 2.5px #ef4444, 0 0 18px rgba(239, 68, 68, 0.95), 0 6px 14px rgba(0, 0, 0, 0.6) !important;
   animation: errorShake 0.6s ease-in-out !important;
 }
 
-/* Tile Halves & Center Dividers */
-.domino-tile-half {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  padding: 4px;
+/* Newly Played Tile Pop */
+.domino-tile.newly-played {
+  animation: tilePlacementPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes tilePlacementPop {
+  0% { transform: scale(1.18); box-shadow: 0 0 0 2.5px #fbbf24, 0 0 22px rgba(251, 191, 36, 0.9); }
+  100% { transform: scale(1); }
+}
+
+/* Board End Drop Zones */
+.board-end-drop-zone {
+  display: flex;
   align-items: center;
-  justify-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 2px dashed rgba(212, 175, 55, 0.65);
+  background: rgba(212, 175, 55, 0.12);
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.25);
+  color: #fef08a;
+  font-weight: 800;
+  font-size: 0.72rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+  z-index: 10;
+  backdrop-filter: blur(4px);
 }
 
-.domino-divider-vertical {
-  height: 2px;
-  width: 84%;
-  margin: 0 auto;
-  background: var(--tile-divider);
-  border-radius: 1px;
-  position: relative;
-  box-shadow: 0 1px 1px rgba(255, 255, 255, 0.7);
+.board-end-drop-zone.left-zone {
+  border-color: rgba(96, 165, 250, 0.7);
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
 }
 
-.domino-divider-horizontal {
-  width: 2px;
-  height: 84%;
-  margin: auto 0;
-  background: var(--tile-divider);
-  border-radius: 1px;
-  position: relative;
-  box-shadow: 1px 0 1px rgba(255, 255, 255, 0.7);
+.board-end-drop-zone.active-drop {
+  transform: scale(1.12);
+  border-color: #10b981 !important;
+  background: rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 0 22px rgba(16, 185, 129, 0.9) !important;
+  color: #fff !important;
 }
-
-.domino-brass-pin {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--tile-brass);
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
-}
-
-/* Domino Pips (Deep Crisp Espresso) */
-.domino-pip {
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #3a312a 0%, #100d0b 100%);
-  box-shadow: inset 0 1px 1.5px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.45);
-}
-.pip-normal { width: 7px; height: 7px; }
-.pip-small { width: 5.5px; height: 5.5px; }
-.pip-tiny { width: 4px; height: 4px; }
-.pip-large { width: 9px; height: 9px; }
 
 /* Concealed Domino Back */
 .domino-tile.concealed {
