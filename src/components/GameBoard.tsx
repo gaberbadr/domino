@@ -94,7 +94,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const feltCanvasRef = useRef<HTMLDivElement>(null);
   const [boardDimensions, setBoardDimensions] = useState<{ width: number; height: number }>({
     width: 800,
     height: 500
@@ -102,8 +102,8 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
 
   // Synchronous pre-paint measurement on initial mount to guarantee correct coordinates on return
   useLayoutEffect(() => {
-    const el = tableContainerRef.current;
-    if (el && el.clientWidth > 100 && el.clientHeight > 100) {
+    const el = feltCanvasRef.current;
+    if (el && el.clientWidth > 50 && el.clientHeight > 50) {
       setBoardDimensions({
         width: Math.round(el.clientWidth),
         height: Math.round(el.clientHeight)
@@ -113,19 +113,19 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
 
   // Observe board felt canvas size dynamically
   useEffect(() => {
-    const el = tableContainerRef.current;
+    const el = feltCanvasRef.current;
     if (!el) return;
     let animId: number;
 
     const updateDims = () => {
       cancelAnimationFrame(animId);
       animId = requestAnimationFrame(() => {
-        if (!tableContainerRef.current) return;
-        const w = tableContainerRef.current.clientWidth;
-        const h = tableContainerRef.current.clientHeight;
-        if (w > 100 && h > 100) {
+        if (!feltCanvasRef.current) return;
+        const w = feltCanvasRef.current.clientWidth;
+        const h = feltCanvasRef.current.clientHeight;
+        if (w > 50 && h > 50) {
           setBoardDimensions((prev) => {
-            if (Math.abs(prev.width - w) < 4 && Math.abs(prev.height - h) < 4) {
+            if (Math.abs(prev.width - w) < 2 && Math.abs(prev.height - h) < 2) {
               return prev;
             }
             return { width: Math.round(w), height: Math.round(h) };
@@ -137,9 +137,13 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
     updateDims();
     const ro = new ResizeObserver(updateDims);
     ro.observe(el);
+    window.addEventListener('resize', updateDims);
+    window.addEventListener('orientationchange', updateDims);
     return () => {
       cancelAnimationFrame(animId);
       ro.disconnect();
+      window.removeEventListener('resize', updateDims);
+      window.removeEventListener('orientationchange', updateDims);
     };
   }, []);
 
@@ -194,7 +198,6 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
 
   return (
     <div
-      ref={tableContainerRef}
       className="game-table-container"
       style={{
         flex: 1,
@@ -537,7 +540,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
 
         {/* Center Board Green Felt with Continuous Chain */}
         <div
-          ref={tableContainerRef}
+          ref={feltCanvasRef}
           className="board-felt-canvas"
           onClick={(e) => {
             if (isChoiceActive && onCancelChoice && e.target === e.currentTarget) {
@@ -650,40 +653,46 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                 height: `${layoutResult.boundingBox.height}px`,
                 transform: `scale(${layoutResult.scale})`,
                 transformOrigin: '0 0',
-                transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                transition: 'left 0.25s ease-out, top 0.25s ease-out, transform 0.25s ease-out'
               }}
             >
-              {/* Left End Connection Point / Drop Zone (Strictly Outside Tile) */}
+              {/* Left End Connection Point / Drop Zone (Visible only during choice selection) */}
               {layoutResult.leftDropZone && (
-                <div
-                  className={`endpoint-marker left-end ${dragOverEnd === BoardEnd.Left ? 'active-drop' : ''} ${
-                    isChoiceActive ? 'choice-active' : ''
-                  }`}
-                  onClick={() => {
-                    if (isChoiceActive && onSelectEnd) onSelectEnd(BoardEnd.Left);
-                  }}
-                  onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Left)}
-                  onDrop={(e) => handleBoardDrop(e, BoardEnd.Left)}
-                  style={{
-                    position: 'absolute',
-                    left: isChoiceActive
-                      ? `${layoutResult.leftDropZone.x - layoutResult.boundingBox.minX + layoutResult.leftDropZone.width / 2}px`
-                      : `${layoutResult.leftDropZone.x - layoutResult.boundingBox.minX}px`,
-                    top: isChoiceActive
-                      ? `${layoutResult.leftDropZone.y - layoutResult.boundingBox.minY + layoutResult.leftDropZone.height / 2}px`
-                      : `${layoutResult.leftDropZone.y - layoutResult.boundingBox.minY}px`,
-                    transform: isChoiceActive ? 'translate(-50%, -50%)' : 'none',
-                    width: isChoiceActive ? 'auto' : `${layoutResult.leftDropZone.width}px`,
-                    height: `${layoutResult.leftDropZone.height}px`
-                  }}
-                  title={isChoiceActive ? 'اضغط هنا للعب على الطرف الشمال' : 'طرف اللعب المفتوح (شمال)'}
-                >
-                  {isChoiceActive ? (
+                isChoiceActive ? (
+                  <div
+                    className="endpoint-marker left-end choice-active"
+                    onClick={() => {
+                      if (onSelectEnd) onSelectEnd(BoardEnd.Left);
+                    }}
+                    onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Left)}
+                    onDrop={(e) => handleBoardDrop(e, BoardEnd.Left)}
+                    style={{
+                      position: 'absolute',
+                      left: `${layoutResult.leftDropZone.x - layoutResult.boundingBox.minX + layoutResult.leftDropZone.width / 2}px`,
+                      top: `${layoutResult.leftDropZone.y - layoutResult.boundingBox.minY + layoutResult.leftDropZone.height / 2}px`,
+                      transform: 'translate(-50%, -50%)',
+                      width: 'auto',
+                      height: `${layoutResult.leftDropZone.height}px`
+                    }}
+                    title="اضغط هنا للعب على الطرف الشمال"
+                  >
                     <span className="choice-btn-text">👈 العب شمال</span>
-                  ) : (
-                    <div className="endpoint-dock-dot" />
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div
+                    className={`endpoint-hitbox left-end ${dragOverEnd === BoardEnd.Left ? 'active-drop' : ''}`}
+                    onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Left)}
+                    onDrop={(e) => handleBoardDrop(e, BoardEnd.Left)}
+                    style={{
+                      position: 'absolute',
+                      left: `${layoutResult.leftDropZone.x - layoutResult.boundingBox.minX}px`,
+                      top: `${layoutResult.leftDropZone.y - layoutResult.boundingBox.minY}px`,
+                      width: `${layoutResult.leftDropZone.width}px`,
+                      height: `${layoutResult.leftDropZone.height}px`,
+                      pointerEvents: 'auto'
+                    }}
+                  />
+                )
               )}
 
               {/* Placed Continuous Domino Tiles */}
@@ -717,37 +726,43 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                 );
               })}
 
-              {/* Right End Connection Point / Drop Zone (Strictly Outside Tile) */}
+              {/* Right End Connection Point / Drop Zone (Visible only during choice selection) */}
               {layoutResult.rightDropZone && (
-                <div
-                  className={`endpoint-marker right-end ${dragOverEnd === BoardEnd.Right ? 'active-drop' : ''} ${
-                    isChoiceActive ? 'choice-active' : ''
-                  }`}
-                  onClick={() => {
-                    if (isChoiceActive && onSelectEnd) onSelectEnd(BoardEnd.Right);
-                  }}
-                  onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Right)}
-                  onDrop={(e) => handleBoardDrop(e, BoardEnd.Right)}
-                  style={{
-                    position: 'absolute',
-                    left: isChoiceActive
-                      ? `${layoutResult.rightDropZone.x - layoutResult.boundingBox.minX + layoutResult.rightDropZone.width / 2}px`
-                      : `${layoutResult.rightDropZone.x - layoutResult.boundingBox.minX}px`,
-                    top: isChoiceActive
-                      ? `${layoutResult.rightDropZone.y - layoutResult.boundingBox.minY + layoutResult.rightDropZone.height / 2}px`
-                      : `${layoutResult.rightDropZone.y - layoutResult.boundingBox.minY}px`,
-                    transform: isChoiceActive ? 'translate(-50%, -50%)' : 'none',
-                    width: isChoiceActive ? 'auto' : `${layoutResult.rightDropZone.width}px`,
-                    height: `${layoutResult.rightDropZone.height}px`
-                  }}
-                  title={isChoiceActive ? 'اضغط هنا للعب على الطرف اليمين' : 'طرف اللعب المفتوح (يمين)'}
-                >
-                  {isChoiceActive ? (
+                isChoiceActive ? (
+                  <div
+                    className="endpoint-marker right-end choice-active"
+                    onClick={() => {
+                      if (onSelectEnd) onSelectEnd(BoardEnd.Right);
+                    }}
+                    onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Right)}
+                    onDrop={(e) => handleBoardDrop(e, BoardEnd.Right)}
+                    style={{
+                      position: 'absolute',
+                      left: `${layoutResult.rightDropZone.x - layoutResult.boundingBox.minX + layoutResult.rightDropZone.width / 2}px`,
+                      top: `${layoutResult.rightDropZone.y - layoutResult.boundingBox.minY + layoutResult.rightDropZone.height / 2}px`,
+                      transform: 'translate(-50%, -50%)',
+                      width: 'auto',
+                      height: `${layoutResult.rightDropZone.height}px`
+                    }}
+                    title="اضغط هنا للعب على الطرف اليمين"
+                  >
                     <span className="choice-btn-text">👉 العب يمين</span>
-                  ) : (
-                    <div className="endpoint-dock-dot" />
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div
+                    className={`endpoint-hitbox right-end ${dragOverEnd === BoardEnd.Right ? 'active-drop' : ''}`}
+                    onDragOver={(e) => handleBoardDragOver(e, BoardEnd.Right)}
+                    onDrop={(e) => handleBoardDrop(e, BoardEnd.Right)}
+                    style={{
+                      position: 'absolute',
+                      left: `${layoutResult.rightDropZone.x - layoutResult.boundingBox.minX}px`,
+                      top: `${layoutResult.rightDropZone.y - layoutResult.boundingBox.minY}px`,
+                      width: `${layoutResult.rightDropZone.width}px`,
+                      height: `${layoutResult.rightDropZone.height}px`,
+                      pointerEvents: 'auto'
+                    }}
+                  />
+                )
               )}
             </div>
           )}

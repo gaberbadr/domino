@@ -13,8 +13,10 @@ import {
   RoundEndResultDto,
   MatchEndResultDto,
   LegalMoveDto,
-  RoundOutcomeType
+  RoundOutcomeType,
+  GameMode
 } from '../types/domino';
+import { computeActiveLegalMoves } from '../utils/dominoRules';
 import { GameBoard } from '../components/GameBoard';
 import { PlayerHand } from '../components/PlayerHand';
 import { InvalidDealModal } from '../components/InvalidDealModal';
@@ -123,45 +125,31 @@ export const GamePage: React.FC<GamePageProps> = ({
 
   // Authoritative dynamic legal moves calculation
   const isMyTurn = match.currentTurnUserId === currentUser.userId;
-  const isFirstMoveOfMatch = match.roundNumber === 1 && (match.openLeft === null && match.openRight === null);
+  const lastRoundHistory = match.roundHistories && match.roundHistories.length > 0
+    ? match.roundHistories[match.roundHistories.length - 1]
+    : null;
 
   const activeLegalMoves = useMemo<LegalMoveDto[]>(() => {
-    if (!isMyTurn) return [];
-
-    // Empty board
-    if (match.openLeft === null && match.openRight === null) {
-      if (isFirstMoveOfMatch) {
-        const d6 = privateState.hand.find((t) => t.end1 === 6 && t.end2 === 6);
-        if (d6) {
-          return [{ tile: d6, canPlaceLeft: true, canPlaceRight: true, requiresChoice: false }];
-        }
-      }
-      return privateState.hand.map((t) => ({
-        tile: t,
-        canPlaceLeft: true,
-        canPlaceRight: true,
-        requiresChoice: false
-      }));
-    }
-
-    const l = match.openLeft;
-    const r = match.openRight;
-
-    const moves: LegalMoveDto[] = [];
-    for (const t of privateState.hand) {
-      const canL = l !== null && (t.end1 === l || t.end2 === l);
-      const canR = r !== null && (t.end1 === r || t.end2 === r);
-      if (canL || canR) {
-        moves.push({
-          tile: t,
-          canPlaceLeft: canL,
-          canPlaceRight: canR,
-          requiresChoice: canL && canR && (l !== r)
-        });
-      }
-    }
-    return moves;
-  }, [isMyTurn, isFirstMoveOfMatch, match.openLeft, match.openRight, privateState.hand]);
+    return computeActiveLegalMoves({
+      hand: privateState.hand,
+      isMyTurn,
+      openLeft: match.openLeft,
+      openRight: match.openRight,
+      boardChain: match.boardChain,
+      gameMode: match.mode,
+      roundNumber: match.roundNumber,
+      lastRoundOutcomeType: lastRoundHistory?.outcomeType
+    });
+  }, [
+    isMyTurn,
+    match.openLeft,
+    match.openRight,
+    match.boardChain,
+    match.mode,
+    match.roundNumber,
+    lastRoundHistory?.outcomeType,
+    privateState.hand
+  ]);
 
   // Landscape Orientation Lock & Detection
   useEffect(() => {
@@ -338,7 +326,19 @@ export const GamePage: React.FC<GamePageProps> = ({
         roundNumber: result.roundNumber,
         boardChain: [],
         openLeft: undefined,
-        openRight: undefined
+        openRight: undefined,
+        roundHistories: [
+          ...(prev.roundHistories || []),
+          {
+            roundNumber: result.roundNumber,
+            outcomeType: result.outcomeType,
+            winnerUserId: result.winnerUserId,
+            winnerName: result.winnerName,
+            winningTeamIndex: result.winningTeamIndex,
+            pointsAwarded: result.pointsAwarded,
+            reason: result.reason
+          }
+        ]
       }));
     });
 
@@ -477,7 +477,7 @@ export const GamePage: React.FC<GamePageProps> = ({
   const handleDropTileOnEnd = async (tileId: number, end: BoardEnd) => {
     if (match.currentTurnUserId !== currentUser.userId || isSubmittingMove) return;
 
-    const legalMove = privateState.legalMoves.find((m) => m.tile.id === tileId);
+    const legalMove = activeLegalMoves.find((m) => m.tile.id === tileId);
     if (!legalMove) {
       triggerTileRejection(tileId, 'الورقة دي مينفعش تلعبها');
       return;

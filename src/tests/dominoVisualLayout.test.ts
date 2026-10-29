@@ -226,5 +226,101 @@ for (const vp of viewports) {
 }
 console.log('✓ All 4 representative viewports verified successfully.\n');
 
-console.log('=== ALL 10 TESTS PASSED SUCCESSFULLY! ===');
+// 11. Full 28-Tile Domino Board Centering and Viewport Containment Test
+console.log('Test 11: Full 28-tile board layout, centering, and non-clipping verification...');
+const full28Chain: BoardPlacedTile[] = [
+  // Left arm (expanded in reverse order from root)
+  { tileId: 101, leftPip: 4, rightPip: 2, orderIndex: 13, placedAt: BoardEnd.Left },
+  { tileId: 102, leftPip: 2, rightPip: 0, orderIndex: 12, placedAt: BoardEnd.Left },
+  { tileId: 103, leftPip: 0, rightPip: 3, orderIndex: 11, placedAt: BoardEnd.Left },
+  { tileId: 104, leftPip: 3, rightPip: 1, orderIndex: 10, placedAt: BoardEnd.Left },
+  { tileId: 105, leftPip: 1, rightPip: 5, orderIndex: 9, placedAt: BoardEnd.Left },
+  { tileId: 106, leftPip: 5, rightPip: 0, orderIndex: 8, placedAt: BoardEnd.Left },
+  { tileId: 107, leftPip: 0, rightPip: 4, orderIndex: 7, placedAt: BoardEnd.Left },
+  { tileId: 108, leftPip: 4, rightPip: 1, orderIndex: 6, placedAt: BoardEnd.Left },
+  { tileId: 109, leftPip: 1, rightPip: 6, orderIndex: 5, placedAt: BoardEnd.Left },
+  { tileId: 110, leftPip: 6, rightPip: 2, orderIndex: 4, placedAt: BoardEnd.Left },
+  { tileId: 111, leftPip: 2, rightPip: 5, orderIndex: 3, placedAt: BoardEnd.Left },
+  { tileId: 112, leftPip: 5, rightPip: 3, orderIndex: 2, placedAt: BoardEnd.Left },
+  { tileId: 113, leftPip: 3, rightPip: 6, orderIndex: 1, placedAt: BoardEnd.Left },
+
+  // Root [6|6]
+  { tileId: 100, leftPip: 6, rightPip: 6, orderIndex: 0 },
+
+  // Right arm
+  { tileId: 114, leftPip: 6, rightPip: 5, orderIndex: 1, placedAt: BoardEnd.Right },
+  { tileId: 115, leftPip: 5, rightPip: 5, orderIndex: 2, placedAt: BoardEnd.Right },
+  { tileId: 116, leftPip: 5, rightPip: 4, orderIndex: 3, placedAt: BoardEnd.Right },
+  { tileId: 117, leftPip: 4, rightPip: 4, orderIndex: 4, placedAt: BoardEnd.Right },
+  { tileId: 118, leftPip: 4, rightPip: 3, orderIndex: 5, placedAt: BoardEnd.Right },
+  { tileId: 119, leftPip: 3, rightPip: 3, orderIndex: 6, placedAt: BoardEnd.Right },
+  { tileId: 120, leftPip: 3, rightPip: 2, orderIndex: 7, placedAt: BoardEnd.Right },
+  { tileId: 121, leftPip: 2, rightPip: 2, orderIndex: 8, placedAt: BoardEnd.Right },
+  { tileId: 122, leftPip: 2, rightPip: 1, orderIndex: 9, placedAt: BoardEnd.Right },
+  { tileId: 123, leftPip: 1, rightPip: 1, orderIndex: 10, placedAt: BoardEnd.Right },
+  { tileId: 124, leftPip: 1, rightPip: 0, orderIndex: 11, placedAt: BoardEnd.Right },
+  { tileId: 125, leftPip: 0, rightPip: 0, orderIndex: 12, placedAt: BoardEnd.Right },
+  { tileId: 126, leftPip: 0, rightPip: 6, orderIndex: 13, placedAt: BoardEnd.Right },
+  { tileId: 127, leftPip: 6, rightPip: 4, orderIndex: 14, placedAt: BoardEnd.Right }
+];
+
+assert(full28Chain.length === 28, 'Chain contains all 28 tiles');
+
+// Test 28-tile on desktop (1200x700)
+const desktop28 = calculateBoardLayout({
+  chain: full28Chain,
+  openLeft: 4,
+  openRight: 4,
+  boardWidth: 1200,
+  boardHeight: 700
+});
+
+assert(desktop28.tiles.length === 28, 'All 28 tiles placed on desktop layout');
+const desk28RenderedW = desktop28.boundingBox.width * desktop28.scale;
+const desk28RenderedH = desktop28.boundingBox.height * desktop28.scale;
+assert(desk28RenderedW <= 1200, '28-tile rendered width fits within 1200px boardWidth');
+assert(desk28RenderedH <= 700, '28-tile rendered height fits within 700px boardHeight');
+assert(desktop28.offsetX >= 0, '28-tile horizontal offset is positive (no left clipping)');
+assert(desktop28.offsetY >= 0, '28-tile vertical offset is positive (no top clipping)');
+assert(Math.abs(desktop28.offsetX - Math.round((1200 - desk28RenderedW) / 2)) <= 1, '28-tile is centered horizontally');
+assert(Math.abs(desktop28.offsetY - Math.round((700 - desk28RenderedH) / 2)) <= 1, '28-tile is centered vertically');
+console.log(`  ✓ Desktop 28-tile: scale=${desktop28.scale.toFixed(2)}, renderedW=${Math.round(desk28RenderedW)}px, renderedH=${Math.round(desk28RenderedH)}px, offsetX=${desktop28.offsetX}px, offsetY=${desktop28.offsetY}px`);
+
+// Test 28-tile on mobile landscape (720x280)
+const mobileLandscape28 = calculateBoardLayout({
+  chain: full28Chain,
+  openLeft: 4,
+  openRight: 4,
+  boardWidth: 720,
+  boardHeight: 280
+});
+
+assert(mobileLandscape28.tiles.length === 28, 'All 28 tiles placed on mobile landscape');
+const mob28RenderedW = mobileLandscape28.boundingBox.width * mobileLandscape28.scale;
+const mob28RenderedH = mobileLandscape28.boundingBox.height * mobileLandscape28.scale;
+assert(mob28RenderedW <= 720, '28-tile rendered width fits within 720px mobile landscape boardWidth');
+assert(mob28RenderedH <= 280, '28-tile rendered height fits within 280px mobile landscape boardHeight');
+assert(mobileLandscape28.offsetX >= 0, 'Mobile landscape offsetX is positive (no left clipping)');
+assert(mobileLandscape28.offsetY >= 0, 'Mobile landscape offsetY is positive (no top clipping)');
+console.log(`  ✓ Mobile landscape 28-tile: scale=${mobileLandscape28.scale.toFixed(2)}, renderedW=${Math.round(mob28RenderedW)}px, renderedH=${Math.round(mob28RenderedH)}px, offsetX=${mobileLandscape28.offsetX}px, offsetY=${mobileLandscape28.offsetY}px`);
+
+// Test 28-tile on mobile portrait (360x520)
+const mobilePortrait28 = calculateBoardLayout({
+  chain: full28Chain,
+  openLeft: 4,
+  openRight: 4,
+  boardWidth: 360,
+  boardHeight: 520
+});
+
+assert(mobilePortrait28.tiles.length === 28, 'All 28 tiles placed on mobile portrait');
+const mobPort28RenderedW = mobilePortrait28.boundingBox.width * mobilePortrait28.scale;
+const mobPort28RenderedH = mobilePortrait28.boundingBox.height * mobilePortrait28.scale;
+assert(mobPort28RenderedW <= 360, '28-tile rendered width fits within 360px mobile portrait boardWidth');
+assert(mobPort28RenderedH <= 520, '28-tile rendered height fits within 520px mobile portrait boardHeight');
+assert(mobilePortrait28.offsetX >= 0, 'Mobile portrait offsetX is positive');
+assert(mobilePortrait28.offsetY >= 0, 'Mobile portrait offsetY is positive');
+console.log(`  ✓ Mobile portrait 28-tile: scale=${mobilePortrait28.scale.toFixed(2)}, renderedW=${Math.round(mobPort28RenderedW)}px, renderedH=${Math.round(mobPort28RenderedH)}px, offsetX=${mobilePortrait28.offsetX}px, offsetY=${mobilePortrait28.offsetY}px`);
+
+console.log('\n=== ALL 11 TESTS PASSED SUCCESSFULLY! ===\n');
 

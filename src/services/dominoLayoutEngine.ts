@@ -604,15 +604,19 @@ export function calculateBoardLayout({
   }
 
   if (rightDropZone) {
-    if (rightDropZone.x < minX) minX = rightDropZone.x;
-    if (rightDropZone.x + rightDropZone.width > maxX) maxX = rightDropZone.x + rightDropZone.width;
+    const rZoneMinX = rightDropZone.x - 28;
+    const rZoneMaxX = rightDropZone.x + rightDropZone.width + 28;
+    if (rZoneMinX < minX) minX = rZoneMinX;
+    if (rZoneMaxX > maxX) maxX = rZoneMaxX;
     if (rightDropZone.y < minY) minY = rightDropZone.y;
     if (rightDropZone.y + rightDropZone.height > maxY) maxY = rightDropZone.y + rightDropZone.height;
   }
 
   if (leftDropZone) {
-    if (leftDropZone.x < minX) minX = leftDropZone.x;
-    if (leftDropZone.x + leftDropZone.width > maxX) maxX = leftDropZone.x + leftDropZone.width;
+    const lZoneMinX = leftDropZone.x - 28;
+    const lZoneMaxX = leftDropZone.x + leftDropZone.width + 28;
+    if (lZoneMinX < minX) minX = lZoneMinX;
+    if (lZoneMaxX > maxX) maxX = lZoneMaxX;
     if (leftDropZone.y < minY) minY = leftDropZone.y;
     if (leftDropZone.y + leftDropZone.height > maxY) maxY = leftDropZone.y + leftDropZone.height;
   }
@@ -627,15 +631,20 @@ export function calculateBoardLayout({
   const totalWidth = Math.max(80, maxX - minX);
   const totalHeight = Math.max(60, maxY - minY);
 
-  // 6. Dynamic Scaling to fit comfortably inside visible board area
-  const availW = Math.max(240, boardWidth - 24);
-  const availH = Math.max(200, boardHeight - 24);
+  // 6. Dynamic Scaling to fit comfortably and completely inside visible board area
+  // Calculate available dimensions with safety margin so the chain never touches canvas edges
+  const marginX = Math.max(12, Math.min(32, Math.round(boardWidth * 0.04)));
+  const marginY = Math.max(12, Math.min(32, Math.round(boardHeight * 0.04)));
+  const availW = Math.max(60, boardWidth - marginX * 2);
+  const availH = Math.max(60, boardHeight - marginY * 2);
 
   const scaleX = availW / totalWidth;
   const scaleY = availH / totalHeight;
   const fitScale = Math.min(1.0, scaleX, scaleY);
-  // Ensure readable threshold while keeping viewport contained
-  const scale = Math.max(0.58, fitScale);
+
+  // Scale adapts dynamically so the chain is fully contained at any length (up to 28 tiles)
+  // Maintains visual clarity without clipping or forcing browser zoom
+  const scale = Math.max(0.2, fitScale);
 
   // Center within board area
   // Since children in GameBoard are positioned relative to minX and minY (x - minX, y - minY),
