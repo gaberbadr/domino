@@ -55,6 +55,17 @@ export interface RoomPlayerDto {
   isHost: boolean;
   isConnected: boolean;
   tileCount: number;
+  cumulativeScore?: number;
+}
+
+export interface RoundHistoryDto {
+  roundNumber: number;
+  outcomeType: RoundOutcomeType;
+  winnerUserId?: string;
+  winnerName?: string;
+  winningTeamIndex?: number;
+  pointsAwarded: number;
+  reason: string;
 }
 
 export interface RoomDto {
@@ -103,6 +114,7 @@ export interface GameMatchDto {
   bankCount: number;
   boardChain: BoardPlacedTile[];
   players: RoomPlayerDto[];
+  roundHistories?: RoundHistoryDto[];
   pendingTeammateStarterUserId?: string;
 }
 

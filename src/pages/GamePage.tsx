@@ -7,6 +7,7 @@ import {
   UserProfileDto,
   DominoTile,
   BoardEnd,
+  BoardPlacedTile,
   BoardUpdateDto,
   InvalidDealNotificationDto,
   RoundEndResultDto,
@@ -16,7 +17,6 @@ import {
 } from '../types/domino';
 import { GameBoard } from '../components/GameBoard';
 import { PlayerHand } from '../components/PlayerHand';
-import { ChooseEndModal } from '../components/ChooseEndModal';
 import { InvalidDealModal } from '../components/InvalidDealModal';
 import { RoundEndModal } from '../components/RoundEndModal';
 import { MatchEndModal } from '../components/MatchEndModal';
@@ -54,6 +54,7 @@ export const GamePage: React.FC<GamePageProps> = ({
   const [choiceTile, setChoiceTile] = useState<DominoTile | null>(null);
   const [invalidDealNotice, setInvalidDealNotice] = useState<InvalidDealNotificationDto | null>(null);
   const [roundEndResult, setRoundEndResult] = useState<RoundEndResultDto | null>(null);
+  const [agreedCount, setAgreedCount] = useState<number>(0);
   const [matchEndResult, setMatchEndResult] = useState<MatchEndResultDto | null>(null);
   const [teammateRequest, setTeammateRequest] = useState<{ requesterId: string; requesterName: string } | null>(null);
 
@@ -62,8 +63,10 @@ export const GamePage: React.FC<GamePageProps> = ({
   const [isSoundSettingsOpen, setIsSoundSettingsOpen] = useState<boolean>(false);
   const [soundboardCooldown, setSoundboardCooldown] = useState<number>(0);
 
-  // In-flight request guards
+  // In-flight request guards & draw animation states
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
+  const [drawingTarget, setDrawingTarget] = useState<'me' | 'opponent' | null>(null);
+  const [recentlyDrawnTileId, setRecentlyDrawnTileId] = useState<number | null>(null);
   const [isSubmittingMove, setIsSubmittingMove] = useState<boolean>(false);
   const [rejectedTileId, setRejectedTileId] = useState<number | null>(null);
 
@@ -88,6 +91,35 @@ export const GamePage: React.FC<GamePageProps> = ({
   currentUserRef.current = currentUser;
   const showToastRef = useRef(showToast);
   showToastRef.current = showToast;
+
+  // Sync prop changes if initial props change
+  useEffect(() => {
+    setMatch(initialMatch);
+  }, [initialMatch]);
+
+  useEffect(() => {
+    setPrivateState(initialPrivateState);
+  }, [initialPrivateState]);
+
+  // Retrieve freshest authoritative match snapshot on mount or reconnect
+  useEffect(() => {
+    let isCancelled = false;
+    api.game.getMatchState(initialMatch.id)
+      .then((res) => {
+        if (!isCancelled && res?.match) {
+          setMatch(res.match);
+          if (res.privateState) {
+            setPrivateState(res.privateState);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Initial authoritative match sync warning:', err);
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, [initialMatch.id]);
 
   // Authoritative dynamic legal moves calculation
   const isMyTurn = match.currentTurnUserId === currentUser.userId;
@@ -170,11 +202,19 @@ export const GamePage: React.FC<GamePageProps> = ({
       soundService.playGameplay('play', `play_${update.placedTile.tileId}_${update.placedTile.orderIndex}`);
       setChoiceTile(null); // Clear any pending choice modal/state
       setMatch((prev) => {
-        const chain = update.boardChain
-          ? update.boardChain
-          : (update.placedTile.placedAt === BoardEnd.Left
+        let chain: BoardPlacedTile[];
+        if (update.boardChain && update.boardChain.length > 0) {
+          chain = update.boardChain;
+        } else {
+          const alreadyExists = prev.boardChain.some((t) => t.tileId === update.placedTile.tileId);
+          if (alreadyExists) {
+            chain = prev.boardChain;
+          } else {
+            chain = update.placedTile.placedAt === BoardEnd.Left
               ? [update.placedTile, ...prev.boardChain]
-              : [...prev.boardChain, update.placedTile]);
+              : [...prev.boardChain, update.placedTile];
+          }
+        }
 
         const players = prev.players.map((p) =>
           p.userId === update.playedByUserId
@@ -229,7 +269,14 @@ export const GamePage: React.FC<GamePageProps> = ({
         return;
       }
 
-      setIsDrawing(false);
+      const isMe = drawerUserId === currentUserRef.current.userId;
+      setDrawingTarget(isMe ? 'me' : 'opponent');
+      setIsDrawing(true);
+      setTimeout(() => {
+        setIsDrawing(false);
+        setDrawingTarget(null);
+      }, 350);
+
       soundService.playGameplay('take', `take_${drawerUserId}_${remainingBankCount}`);
       setMatch((prev) => {
         const players = prev.players.map((p) =>
@@ -242,7 +289,18 @@ export const GamePage: React.FC<GamePageProps> = ({
         };
       });
 
-      if (drawerUserId === currentUserRef.current.userId && drawnTile) {
+      if (isMe && drawnTile) {
+        setRecentlyDrawnTileId(drawnTile.id);
+        setTimeout(() => setRecentlyDrawnTileId(null), 650);
+
+        setPrivateState((prev) => {
+          if (prev.hand.some((t) => t.id === drawnTile.id)) return prev;
+          return {
+            ...prev,
+            hand: [...prev.hand, drawnTile]
+          };
+        });
+
         showToastRef.current(`سحبت ورقة: [${drawnTile.end1}|${drawnTile.end2}]`, 'info');
       } else {
         const drawer = matchRef.current.players.find((p) => p.userId === drawerUserId);
@@ -271,6 +329,7 @@ export const GamePage: React.FC<GamePageProps> = ({
         soundService.playGameplay('drawOrClose');
       }
       setChoiceTile(null);
+      setAgreedCount(0);
       setRoundEndResult(result);
       setMatch((prev) => ({
         ...prev,
@@ -326,14 +385,16 @@ export const GamePage: React.FC<GamePageProps> = ({
     });
 
     // 12. Next Round Agreement and Start
-    conn.on('NextRoundAgreed', (userId: string, agreedCount: number, totalRequired: number) => {
+    conn.on('NextRoundAgreed', (userId: string, agreed: number, totalRequired: number) => {
+      setAgreedCount(agreed);
       const p = matchRef.current.players.find((x) => x.userId === userId);
-      showToastRef.current(`${p?.displayName || 'لاعب'} وافق على الجولة التالية (${agreedCount}/${totalRequired})`, 'info');
+      showToastRef.current(`${p?.displayName || 'لاعب'} وافق على الجولة التالية (${agreed}/${totalRequired})`, 'info');
     });
 
     conn.on('NextRoundStarted', (updatedMatch: GameMatchDto) => {
       setRoundEndResult(null);
       setChoiceTile(null);
+      setAgreedCount(0);
       setMatch(updatedMatch);
       showToastRef.current(`بدأت الجولة ${updatedMatch.roundNumber}!`, 'success');
     });
@@ -389,17 +450,24 @@ export const GamePage: React.FC<GamePageProps> = ({
   const handleTileClick = async (tile: DominoTile) => {
     if (!isMyTurn || isSubmittingMove) return;
 
+    // Tapping the currently selected choice tile toggles selection off
+    if (choiceTile?.id === tile.id) {
+      setChoiceTile(null);
+      return;
+    }
+
     const legalMove = activeLegalMoves.find((m) => m.tile.id === tile.id);
     if (!legalMove) {
       triggerTileRejection(tile.id, 'الورقة دي مينفعش تلعبها حالياً');
       return;
     }
 
-    // Dual-endpoint match where endpoints are distinct: prompt endpoint selection
+    // Dual-endpoint match where endpoints are distinct: prompt on-board endpoint selection
     if (legalMove.requiresChoice && match.openLeft !== null && match.openRight !== null) {
       setChoiceTile(tile);
     } else {
       // Single legal endpoint: play immediately
+      setChoiceTile(null);
       const chosenEnd = legalMove.canPlaceLeft ? BoardEnd.Left : BoardEnd.Right;
       await executeMove(tile.id, chosenEnd);
     }
@@ -526,6 +594,7 @@ export const GamePage: React.FC<GamePageProps> = ({
         canDraw={privateState.canDraw}
         canSkip={privateState.canSkip}
         isDrawing={isDrawing}
+        drawingTarget={drawingTarget}
         isChoiceActive={choiceTile !== null}
         roomCode={roomCode}
         onDraw={handleDraw}
@@ -535,6 +604,7 @@ export const GamePage: React.FC<GamePageProps> = ({
         onSelectEnd={(end) => {
           if (choiceTile) executeMove(choiceTile.id, end);
         }}
+        onCancelChoice={() => setChoiceTile(null)}
         onExitGame={onExitGame}
         onOpenSoundboard={() => setIsSoundboardOpen(true)}
         onOpenSoundSettings={() => setIsSoundSettingsOpen(true)}
@@ -546,18 +616,8 @@ export const GamePage: React.FC<GamePageProps> = ({
         legalMoves={activeLegalMoves}
         isMyTurn={isMyTurn}
         rejectedTileId={rejectedTileId}
+        recentlyDrawnTileId={recentlyDrawnTileId}
         onTileClick={handleTileClick}
-      />
-
-      {/* Choose End Modal (When tile fits both Left and Right) */}
-      <ChooseEndModal
-        tile={choiceTile}
-        openLeft={match.openLeft ?? null}
-        openRight={match.openRight ?? null}
-        onSelectEnd={(end) => {
-          if (choiceTile) executeMove(choiceTile.id, end);
-        }}
-        onCancel={() => setChoiceTile(null)}
       />
 
       {/* Invalid Deal Reveal Modal */}
@@ -568,7 +628,10 @@ export const GamePage: React.FC<GamePageProps> = ({
 
       {/* Round End Modal with Standard Continue/Leave Actions */}
       <RoundEndModal
+        key={`round-end-${roundEndResult?.roundNumber ?? 0}`}
         result={roundEndResult}
+        agreedCount={agreedCount}
+        totalRequired={match.players.length}
         onContinue={async () => {
           if (roundEndResult) {
             try {

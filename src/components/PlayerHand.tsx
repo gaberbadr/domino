@@ -8,6 +8,7 @@ interface PlayerHandProps {
   legalMoves: LegalMoveDto[];
   isMyTurn: boolean;
   rejectedTileId?: number | null;
+  recentlyDrawnTileId?: number | null;
   onTileClick: (tile: DominoTile) => void;
   onTileDragStartPlay?: (tile: DominoTile) => void;
 }
@@ -17,6 +18,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
   legalMoves,
   isMyTurn,
   rejectedTileId = null,
+  recentlyDrawnTileId = null,
   onTileClick,
   onTileDragStartPlay
 }) => {
@@ -230,7 +232,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
               key={tile.id}
               className={`hand-tile-wrapper ${isBeingDragged ? 'is-dragged' : ''} ${
                 isTargeted ? 'is-drop-target' : ''
-              }`}
+              } ${recentlyDrawnTileId === tile.id ? 'just-drawn' : ''}`}
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={(e) => handleDrop(e, index)}
               style={{

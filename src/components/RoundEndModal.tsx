@@ -5,27 +5,44 @@ import { Award, ShieldAlert, Scale, ArrowRightCircle, LogOut, CheckCircle2, Load
 
 interface RoundEndModalProps {
   result: RoundEndResultDto | null;
-  onContinue: () => void;
+  onContinue: () => Promise<void> | void;
   onLeave?: () => void;
-  isWaitingOpponent?: boolean;
+  agreedCount?: number;
+  totalRequired?: number;
 }
 
 export const RoundEndModal: React.FC<RoundEndModalProps> = ({
   result,
   onContinue,
   onLeave,
-  isWaitingOpponent = false
+  agreedCount = 0,
+  totalRequired = 2
 }) => {
   const [hasAgreed, setHasAgreed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Strictly reset agreement state whenever a new round result is presented
+  React.useEffect(() => {
+    setHasAgreed(false);
+    setIsSubmitting(false);
+  }, [result?.roundNumber]);
 
   if (!result || result.isMatchCompleted) return null;
 
   const isDraw = result.outcomeType === RoundOutcomeType.Draw;
   const isBlocked = result.outcomeType === RoundOutcomeType.BlockedWin;
 
-  const handleContinueClick = () => {
+  const handleContinueClick = async () => {
     setHasAgreed(true);
-    onContinue();
+    setIsSubmitting(true);
+    try {
+      await onContinue();
+    } catch {
+      // Allow retry if network call failed
+      setHasAgreed(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -150,7 +167,7 @@ export const RoundEndModal: React.FC<RoundEndModalProps> = ({
             <p style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.4rem' }}>
               انتقل إلى الجولة التالية؟
             </p>
-            {(hasAgreed || isWaitingOpponent) && (
+            {hasAgreed ? (
               <div
                 style={{
                   display: 'flex',
@@ -163,9 +180,24 @@ export const RoundEndModal: React.FC<RoundEndModalProps> = ({
                 }}
               >
                 <Loader2 size={16} className="animate-spin" />
-                <span>تم تسجيل موافقتك.. في انتظار موافقة اللاعب الآخر للبدء</span>
+                <span>تم تسجيل موافقتك ({Math.max(1, agreedCount)}/{totalRequired}).. في انتظار باقي اللاعبين للبدء</span>
               </div>
-            )}
+            ) : agreedCount > 0 ? (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  fontSize: '0.88rem',
+                  color: '#60a5fa',
+                  marginTop: '0.5rem'
+                }}
+              >
+                <CheckCircle2 size={16} />
+                <span>اللاعب الآخر وافق على المتابعة ({agreedCount}/{totalRequired})! اضغط للمتابعة</span>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -173,13 +205,13 @@ export const RoundEndModal: React.FC<RoundEndModalProps> = ({
           <button
             className="btn btn-primary"
             onClick={handleContinueClick}
-            disabled={hasAgreed || isWaitingOpponent}
+            disabled={hasAgreed || isSubmitting}
             style={{ flex: 1.5, padding: '0.75rem 1rem', fontSize: '1rem', fontWeight: 800 }}
           >
-            {hasAgreed || isWaitingOpponent ? (
+            {hasAgreed ? (
               <>
                 <CheckCircle2 size={18} />
-                <span>في الانتظار...</span>
+                <span>في الانتظار ({Math.max(1, agreedCount)}/{totalRequired})...</span>
               </>
             ) : (
               <span>الجولة التالية 🎲</span>

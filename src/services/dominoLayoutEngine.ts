@@ -207,8 +207,8 @@ export function calculateBoardLayout({
       rightDir = 'WEST';
       rightSteps = 0;
       rightArmLastDir = 'SOUTH';
-      rightCurrX = x + S / 2;
-      rightCurrY = y + ROW_PITCH;
+      rightCurrX = x;
+      rightCurrY = rightRow * ROW_PITCH;
     } else if (shouldTurnWest) {
       // 90-degree corner turn pointing SOUTH on Left edge
       const w = S;
@@ -235,8 +235,8 @@ export function calculateBoardLayout({
       rightDir = 'EAST';
       rightSteps = 0;
       rightArmLastDir = 'SOUTH';
-      rightCurrX = x + S / 2;
-      rightCurrY = y + ROW_PITCH;
+      rightCurrX = x + S;
+      rightCurrY = rightRow * ROW_PITCH;
     } else {
       // In-line tile
       if (rightDir === 'EAST') {
@@ -376,8 +376,8 @@ export function calculateBoardLayout({
       leftDir = 'EAST';
       leftSteps = 0;
       leftArmLastDir = 'NORTH';
-      leftCurrX = x + S / 2;
-      leftCurrY = y - ROW_PITCH + 2 * S;
+      leftCurrX = x + S;
+      leftCurrY = leftRow * ROW_PITCH;
     } else if (shouldTurnEast) {
       // 90-degree corner turn pointing NORTH on Right edge
       const w = S;
@@ -404,8 +404,8 @@ export function calculateBoardLayout({
       leftDir = 'WEST';
       leftSteps = 0;
       leftArmLastDir = 'NORTH';
-      leftCurrX = x + S / 2;
-      leftCurrY = y - ROW_PITCH + 2 * S;
+      leftCurrX = x;
+      leftCurrY = leftRow * ROW_PITCH;
     } else {
       // In-line tile for Left Arm
       if (leftDir === 'WEST') {

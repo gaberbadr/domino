@@ -7,6 +7,7 @@ interface DominoBankViewProps {
   bankCount: number;
   canDraw: boolean;
   isDrawing: boolean;
+  drawTargetDirection?: 'down' | 'up' | null;
   onDraw: () => void;
 }
 
@@ -14,6 +15,7 @@ export const DominoBankView: React.FC<DominoBankViewProps> = ({
   bankCount,
   canDraw,
   isDrawing,
+  drawTargetDirection = 'down',
   onDraw
 }) => {
   if (bankCount <= 0) {
@@ -101,7 +103,7 @@ export const DominoBankView: React.FC<DominoBankViewProps> = ({
 
         {/* Flying tile draw animation element when isDrawing is true */}
         {isDrawing && (
-          <div className="flying-draw-tile">
+          <div className={`flying-draw-tile ${drawTargetDirection === 'up' ? 'flying-up' : 'flying-down'}`}>
             <DominoTileView isConcealed={true} orientation="vertical" size="small" />
           </div>
         )}

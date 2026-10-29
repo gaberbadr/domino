@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { GameMatchDto, BoardPlacedTile, GameMode, BoardEnd, MatchStatus } from '../types/domino';
 import { DominoTileView } from './DominoTileView';
 import { ConcealedHandView } from './ConcealedHandView';
@@ -8,7 +8,7 @@ import { AutoSkipButton } from './AutoSkipButton';
 import { VoiceChatControls } from './VoiceChatControls';
 import { calculateBoardLayout } from '../services/dominoLayoutEngine';
 import { STRINGS } from '../constants/strings';
-import { Clock, Hand, LogOut, Volume2, Sliders } from 'lucide-react';
+import { Clock, Hand, LogOut, Volume2, Sliders, History, X, Award, Scale, ShieldAlert } from 'lucide-react';
 
 interface GameBoardProps {
   match: GameMatchDto;
@@ -16,6 +16,7 @@ interface GameBoardProps {
   canDraw: boolean;
   canSkip: boolean;
   isDrawing?: boolean;
+  drawingTarget?: 'me' | 'opponent' | null;
   isChoiceActive?: boolean;
   roomCode?: string;
   onDraw: () => void;
@@ -23,6 +24,7 @@ interface GameBoardProps {
   onRequestTeammateStart?: () => void;
   onDropTileOnEnd?: (tileId: number, end: BoardEnd) => void;
   onSelectEnd?: (end: BoardEnd) => void;
+  onCancelChoice?: () => void;
   onExitGame?: () => void;
   onOpenSoundboard?: () => void;
   onOpenSoundSettings?: () => void;
@@ -75,6 +77,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
   canDraw,
   canSkip,
   isDrawing = false,
+  drawingTarget = null,
   isChoiceActive = false,
   roomCode,
   onDraw,
@@ -82,12 +85,14 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
   onRequestTeammateStart,
   onDropTileOnEnd,
   onSelectEnd,
+  onCancelChoice,
   onExitGame,
   onOpenSoundboard,
   onOpenSoundSettings
 }) => {
   const [dragOverEnd, setDragOverEnd] = useState<BoardEnd | null>(null);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const [boardDimensions, setBoardDimensions] = useState<{ width: number; height: number }>({
@@ -95,7 +100,18 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
     height: 500
   });
 
-  // Observe outer table container size (avoids scrollbar-triggered layout oscillations)
+  // Synchronous pre-paint measurement on initial mount to guarantee correct coordinates on return
+  useLayoutEffect(() => {
+    const el = tableContainerRef.current;
+    if (el && el.clientWidth > 100 && el.clientHeight > 100) {
+      setBoardDimensions({
+        width: Math.round(el.clientWidth),
+        height: Math.round(el.clientHeight)
+      });
+    }
+  }, []);
+
+  // Observe board felt canvas size dynamically
   useEffect(() => {
     const el = tableContainerRef.current;
     if (!el) return;
@@ -105,11 +121,11 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
       cancelAnimationFrame(animId);
       animId = requestAnimationFrame(() => {
         if (!tableContainerRef.current) return;
-        const w = tableContainerRef.current.clientWidth - 130;
-        const h = tableContainerRef.current.clientHeight - 85;
+        const w = tableContainerRef.current.clientWidth;
+        const h = tableContainerRef.current.clientHeight;
         if (w > 100 && h > 100) {
           setBoardDimensions((prev) => {
-            if (Math.abs(prev.width - w) < 16 && Math.abs(prev.height - h) < 16) {
+            if (Math.abs(prev.width - w) < 4 && Math.abs(prev.height - h) < 4) {
               return prev;
             }
             return { width: Math.round(w), height: Math.round(h) };
@@ -218,31 +234,153 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
 
           <div style={{ height: 22, width: 1, background: 'rgba(255, 255, 255, 0.12)' }} />
 
-          <div>
-            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'block' }}>
-              {match.mode === GameMode.Quadruple ? 'النتيجة (فريقك - الخصم)' : 'النتيجة (101 بنط)'}
-            </span>
-            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-              <span
-                style={{
-                  fontSize: '1.15rem',
-                  fontWeight: 900,
-                  color: myPlayer?.teamIndex === 2 ? '#60a5fa' : 'var(--platinum-light)'
-                }}
-              >
-                {match.team1Score}
-              </span>
-              <span style={{ color: '#64748b', fontWeight: 800 }}>:</span>
-              <span
-                style={{
-                  fontSize: '1.15rem',
-                  fontWeight: 900,
-                  color: myPlayer?.teamIndex === 2 ? 'var(--platinum-light)' : '#60a5fa'
-                }}
-              >
-                {match.team2Score}
-              </span>
-            </div>
+          {/* Score Ownership Block */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {match.mode === GameMode.Individual ? (
+              // 1v1 Mode: Explicit current user vs opponent score
+              (() => {
+                const opponentPlayer = match.players.find((p) => p.userId !== currentUserId);
+                const myScore = myPlayer?.seatIndex === 0 ? match.team1Score : match.team2Score;
+                const oppScore = myPlayer?.seatIndex === 0 ? match.team2Score : match.team1Score;
+
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    {/* Current User Score */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '9999px',
+                        background: 'rgba(212, 175, 55, 0.16)',
+                        border: '1.5px solid rgba(212, 175, 55, 0.5)',
+                        boxShadow: '0 0 10px rgba(212, 175, 55, 0.2)'
+                      }}
+                      title="مجموع نقاطك التراكمي (أنت)"
+                    >
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--gold-primary)' }}>أنت:</span>
+                      <span style={{ fontSize: '1.05rem', fontWeight: 900, color: '#fcfaf6' }}>{myScore}</span>
+                    </div>
+
+                    <span style={{ color: '#64748b', fontWeight: 900, fontSize: '0.9rem' }}>:</span>
+
+                    {/* Opponent Score */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '9999px',
+                        background: 'rgba(56, 189, 248, 0.12)',
+                        border: '1.5px solid rgba(56, 189, 248, 0.4)'
+                      }}
+                      title={`مجموع نقاط الخصم (${opponentPlayer?.displayName || 'الخصم'})`}
+                    >
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#38bdf8' }}>
+                        {opponentPlayer?.displayName ? (opponentPlayer.displayName.length > 7 ? opponentPlayer.displayName.slice(0, 6) + '..' : opponentPlayer.displayName) : 'الخصم'}:
+                      </span>
+                      <span style={{ fontSize: '1.05rem', fontWeight: 900, color: '#fcfaf6' }}>{oppScore}</span>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : match.mode === GameMode.Quadruple ? (
+              // Quadruple 4p Mode: Team 1 vs Team 2 with user's team marked
+              (() => {
+                const isTeam1 = myPlayer?.teamIndex === 1;
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '9999px',
+                        background: isTeam1 ? 'rgba(212, 175, 55, 0.16)' : 'rgba(56, 189, 248, 0.12)',
+                        border: isTeam1 ? '1.5px solid rgba(212, 175, 55, 0.5)' : '1px solid rgba(56, 189, 248, 0.35)'
+                      }}
+                    >
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isTeam1 ? 'var(--gold-primary)' : '#38bdf8' }}>
+                        {isTeam1 ? 'فريقك (1):' : 'فريق 1:'}
+                      </span>
+                      <span style={{ fontSize: '1.05rem', fontWeight: 900, color: '#fcfaf6' }}>{match.team1Score}</span>
+                    </div>
+
+                    <span style={{ color: '#64748b', fontWeight: 900, fontSize: '0.9rem' }}>:</span>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '9999px',
+                        background: !isTeam1 ? 'rgba(212, 175, 55, 0.16)' : 'rgba(56, 189, 248, 0.12)',
+                        border: !isTeam1 ? '1.5px solid rgba(212, 175, 55, 0.5)' : '1px solid rgba(56, 189, 248, 0.35)'
+                      }}
+                    >
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: !isTeam1 ? 'var(--gold-primary)' : '#38bdf8' }}>
+                        {!isTeam1 ? 'فريقك (2):' : 'فريق 2:'}
+                      </span>
+                      <span style={{ fontSize: '1.05rem', fontWeight: 900, color: '#fcfaf6' }}>{match.team2Score}</span>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              // Triple Mode: Individual players
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                {match.players.map((p) => {
+                  const isMe = p.userId === currentUserId;
+                  return (
+                    <div
+                      key={p.userId}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        padding: '0.18rem 0.45rem',
+                        borderRadius: '9999px',
+                        background: isMe ? 'rgba(212, 175, 55, 0.16)' : 'rgba(255, 255, 255, 0.06)',
+                        border: isMe ? '1.5px solid rgba(212, 175, 55, 0.5)' : '1px solid rgba(255, 255, 255, 0.15)'
+                      }}
+                    >
+                      <span style={{ fontSize: '0.68rem', fontWeight: 800, color: isMe ? 'var(--gold-primary)' : '#94a3b8' }}>
+                        {isMe ? 'أنت' : p.displayName.slice(0, 5)}:
+                      </span>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 900, color: '#fcfaf6' }}>
+                        {p.cumulativeScore ?? 0}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Score Summary & Round History Icon Button */}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setIsHistoryOpen(true)}
+              style={{
+                padding: '0.22rem 0.5rem',
+                fontSize: '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.18)',
+                color: '#e2e8f0'
+              }}
+              title="عرض سجل الجولات والنقاط"
+            >
+              <History size={13} color="var(--gold-primary)" />
+              <span className="hidden sm:inline">السجل</span>
+            </button>
           </div>
         </div>
 
@@ -399,7 +537,13 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
 
         {/* Center Board Green Felt with Continuous Chain */}
         <div
+          ref={tableContainerRef}
           className="board-felt-canvas"
+          onClick={(e) => {
+            if (isChoiceActive && onCancelChoice && e.target === e.currentTarget) {
+              onCancelChoice();
+            }
+          }}
           style={{
             flex: 1,
             position: 'relative',
@@ -407,10 +551,62 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
             borderRadius: '1rem',
             overflow: 'hidden',
             background: 'radial-gradient(ellipse at center, #19523a 0%, #113c2a 65%, #092318 100%)',
-            border: '2px solid rgba(229, 231, 235, 0.1)',
-            boxShadow: 'inset 0 0 45px rgba(0, 0, 0, 0.75)'
+            border: isChoiceActive ? '2px solid var(--gold-primary)' : '2px solid rgba(229, 231, 235, 0.1)',
+            boxShadow: isChoiceActive
+              ? 'inset 0 0 50px rgba(0, 0, 0, 0.75), 0 0 15px rgba(212, 175, 55, 0.35)'
+              : 'inset 0 0 45px rgba(0, 0, 0, 0.75)',
+            transition: 'border-color 0.2s, box-shadow 0.2s'
           }}
         >
+          {/* Subtle Choice Mode Banner Guide */}
+          {isChoiceActive && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '10px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 40,
+                background: 'rgba(15, 23, 42, 0.92)',
+                backdropFilter: 'blur(8px)',
+                border: '1.5px solid var(--gold-primary)',
+                borderRadius: '9999px',
+                padding: '0.35rem 0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.65rem',
+                boxShadow: '0 4px 18px rgba(0, 0, 0, 0.65)',
+                pointerEvents: 'auto'
+              }}
+            >
+              <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--gold-primary)' }}>
+                اضغط على أحد الطرفين المضاءين للعب الورقة
+              </span>
+              {onCancelChoice && (
+                <button
+                  type="button"
+                  onClick={onCancelChoice}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.18)',
+                    border: 'none',
+                    color: '#ffffff',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    padding: 0
+                  }}
+                  title="إلغاء التحديد"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          )}
+
           {match.boardChain.length === 0 ? (
             <div
               style={{
@@ -470,15 +666,20 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                   onDrop={(e) => handleBoardDrop(e, BoardEnd.Left)}
                   style={{
                     position: 'absolute',
-                    left: `${layoutResult.leftDropZone.x - layoutResult.boundingBox.minX}px`,
-                    top: `${layoutResult.leftDropZone.y - layoutResult.boundingBox.minY}px`,
+                    left: isChoiceActive
+                      ? `${layoutResult.leftDropZone.x - layoutResult.boundingBox.minX + layoutResult.leftDropZone.width / 2}px`
+                      : `${layoutResult.leftDropZone.x - layoutResult.boundingBox.minX}px`,
+                    top: isChoiceActive
+                      ? `${layoutResult.leftDropZone.y - layoutResult.boundingBox.minY + layoutResult.leftDropZone.height / 2}px`
+                      : `${layoutResult.leftDropZone.y - layoutResult.boundingBox.minY}px`,
+                    transform: isChoiceActive ? 'translate(-50%, -50%)' : 'none',
                     width: isChoiceActive ? 'auto' : `${layoutResult.leftDropZone.width}px`,
                     height: `${layoutResult.leftDropZone.height}px`
                   }}
                   title={isChoiceActive ? 'اضغط هنا للعب على الطرف الشمال' : 'طرف اللعب المفتوح (شمال)'}
                 >
                   {isChoiceActive ? (
-                    <span className="choice-btn-text">👈 هنا</span>
+                    <span className="choice-btn-text">👈 العب شمال</span>
                   ) : (
                     <div className="endpoint-dock-dot" />
                   )}
@@ -529,15 +730,20 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                   onDrop={(e) => handleBoardDrop(e, BoardEnd.Right)}
                   style={{
                     position: 'absolute',
-                    left: `${layoutResult.rightDropZone.x - layoutResult.boundingBox.minX}px`,
-                    top: `${layoutResult.rightDropZone.y - layoutResult.boundingBox.minY}px`,
+                    left: isChoiceActive
+                      ? `${layoutResult.rightDropZone.x - layoutResult.boundingBox.minX + layoutResult.rightDropZone.width / 2}px`
+                      : `${layoutResult.rightDropZone.x - layoutResult.boundingBox.minX}px`,
+                    top: isChoiceActive
+                      ? `${layoutResult.rightDropZone.y - layoutResult.boundingBox.minY + layoutResult.rightDropZone.height / 2}px`
+                      : `${layoutResult.rightDropZone.y - layoutResult.boundingBox.minY}px`,
+                    transform: isChoiceActive ? 'translate(-50%, -50%)' : 'none',
                     width: isChoiceActive ? 'auto' : `${layoutResult.rightDropZone.width}px`,
                     height: `${layoutResult.rightDropZone.height}px`
                   }}
                   title={isChoiceActive ? 'اضغط هنا للعب على الطرف اليمين' : 'طرف اللعب المفتوح (يمين)'}
                 >
                   {isChoiceActive ? (
-                    <span className="choice-btn-text">👉 هنا</span>
+                    <span className="choice-btn-text">👉 العب يمين</span>
                   ) : (
                     <div className="endpoint-dock-dot" />
                   )}
@@ -580,11 +786,130 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
               bankCount={match.bankCount}
               canDraw={isMyTurn && canDraw}
               isDrawing={isDrawing}
+              drawTargetDirection={drawingTarget === 'opponent' ? 'up' : 'down'}
               onDraw={onDraw}
             />
           )}
         </div>
       </div>
+
+      {/* Round History Popover Panel */}
+      {isHistoryOpen && (
+        <div
+          className="modal-overlay"
+          onClick={() => setIsHistoryOpen(false)}
+          style={{ zIndex: 110 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '480px', padding: '1.25rem', textAlign: 'right' }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                paddingBottom: '0.75rem',
+                marginBottom: '1rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <History size={20} color="var(--gold-primary)" />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fcfaf6', margin: 0 }}>
+                  سجل جولات الماتش (101 بنط)
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsHistoryOpen(false)}
+                style={{ padding: '0.2rem 0.4rem' }}
+                title="إغلاق السجل"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Current Match Status Banner */}
+            <div
+              style={{
+                background: 'rgba(212, 175, 55, 0.1)',
+                border: '1px solid rgba(212, 175, 55, 0.25)',
+                borderRadius: '0.65rem',
+                padding: '0.65rem 0.85rem',
+                marginBottom: '1rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '0.88rem'
+              }}
+            >
+              <span style={{ color: '#cbd5e1' }}>حالة الماتش الحالية:</span>
+              <strong style={{ color: match.status === MatchStatus.Completed ? '#10b981' : 'var(--gold-primary)' }}>
+                {match.status === MatchStatus.Completed ? 'ماتش منتهي' : `جولة ${match.roundNumber} (الماتش مستمر لـ 101 بنط)`}
+              </strong>
+            </div>
+
+            {/* Completed Rounds List */}
+            <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {(!match.roundHistories || match.roundHistories.length === 0) ? (
+                <div style={{ textAlign: 'center', color: '#94a3b8', padding: '1.75rem', fontSize: '0.9rem' }}>
+                  لسه مفيش جولات انتهت في هذا الماتش.
+                </div>
+              ) : (
+                match.roundHistories.map((h) => {
+                  const isDraw = h.outcomeType === 2; // Draw
+                  const isBlocked = h.outcomeType === 1; // Blocked
+                  return (
+                    <div
+                      key={h.roundNumber}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '0.65rem',
+                        padding: '0.65rem 0.85rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <span
+                          style={{
+                            background: '#0d131f',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            padding: '0.15rem 0.45rem',
+                            borderRadius: '6px',
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            color: '#94a3b8'
+                          }}
+                        >
+                          ج {h.roundNumber}
+                        </span>
+                        <div>
+                          <strong style={{ fontSize: '0.88rem', color: isDraw ? '#60a5fa' : isBlocked ? 'var(--gold-primary)' : '#10b981', display: 'block' }}>
+                            {isDraw ? 'تعادل (DRAW)' : isBlocked ? `فوز بالقفلة (${h.winnerName || 'فائز'})` : `فائز: ${h.winnerName || 'لاعب'}`}
+                          </strong>
+                          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{h.reason}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'left' }}>
+                        <span style={{ fontSize: '0.95rem', fontWeight: 900, color: isDraw ? '#94a3b8' : 'var(--gold-primary)' }}>
+                          {isDraw ? '0 بنط' : `+${h.pointsAwarded} بنط`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Leave Game Confirmation Modal */}
       <ExitConfirmationModal

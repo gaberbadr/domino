@@ -30,6 +30,7 @@ export const App: React.FC = () => {
   const [activeMatch, setActiveMatch] = useState<GameMatchDto | null>(null);
   const [privateState, setPrivateState] = useState<PlayerPrivateStateDto | null>(null);
   const [recoverableMatch, setRecoverableMatch] = useState<ActiveMatchRecoveryDto | null>(null);
+  const [isProcessingRecovery, setIsProcessingRecovery] = useState<boolean>(false);
 
   // Modals
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
@@ -148,42 +149,82 @@ export const App: React.FC = () => {
 
   // Resume active recoverable match
   const handleResumeActiveMatch = async () => {
-    if (!recoverableMatch) return;
+    if (!recoverableMatch || isProcessingRecovery) return;
+    setIsProcessingRecovery(true);
     try {
-      const room = await api.game.getRoom(recoverableMatch.roomCode);
-      setActiveRoom(room);
-    } catch {
-      setActiveRoom({
-        id: recoverableMatch.match.id,
-        roomCode: recoverableMatch.roomCode,
-        name: 'مباراة جارية',
-        mode: recoverableMatch.match.mode,
-        isPrivate: false,
-        maxPlayers: 2,
-        currentPlayersCount: 2,
-        hostId: '',
-        hostName: '',
-        status: 1 as any,
-        players: []
-      });
+      try {
+        const room = await api.game.getRoom(recoverableMatch.roomCode);
+        setActiveRoom(room);
+      } catch {
+        setActiveRoom({
+          id: recoverableMatch.match.id,
+          roomCode: recoverableMatch.roomCode,
+          name: 'مباراة جارية',
+          mode: recoverableMatch.match.mode,
+          isPrivate: false,
+          maxPlayers: 2,
+          currentPlayersCount: 2,
+          hostId: '',
+          hostName: '',
+          status: 1 as any,
+          players: []
+        });
+      }
+
+      // Fetch freshest authoritative snapshot from server
+      let finalMatch = recoverableMatch.match;
+      let finalPrivateState = recoverableMatch.privateState;
+      try {
+        const fresh = await api.game.getMatchState(recoverableMatch.match.id);
+        if (fresh?.match) {
+          finalMatch = fresh.match;
+          if (fresh.privateState) finalPrivateState = fresh.privateState;
+        }
+      } catch (err) {
+        console.warn('Using recovery snapshot:', err);
+      }
+
+      setActiveMatch(finalMatch);
+      setPrivateState(finalPrivateState);
+      setCurrentPage('game');
+      await signalRService.joinRoomGroup(recoverableMatch.roomCode);
+      setRecoverableMatch(null);
+    } finally {
+      setIsProcessingRecovery(false);
     }
-    setActiveMatch(recoverableMatch.match);
-    setPrivateState(recoverableMatch.privateState);
-    setCurrentPage('game');
-    await signalRService.joinRoomGroup(recoverableMatch.roomCode);
-    setRecoverableMatch(null);
   };
 
   // Abandon active match and leave room
   const handleAbandonActiveMatch = async () => {
-    if (!recoverableMatch) return;
+    if (!recoverableMatch || isProcessingRecovery) return;
+    setIsProcessingRecovery(true);
     try {
       await api.game.leaveRoom(recoverableMatch.roomCode);
       await signalRService.leaveRoomGroup(recoverableMatch.roomCode);
-    } catch {
-      // Ignore
+      setRecoverableMatch(null);
+    } catch (err) {
+      console.error('Failed to leave match:', err);
+      alert('تعذر مغادرة المباراة حالياً، يرجى المحاولة مرة أخرى.');
+    } finally {
+      setIsProcessingRecovery(false);
     }
+  };
+
+  // Explicit exit from in-game
+  const handleExitGame = async () => {
+    if (activeRoom) {
+      try {
+        await api.game.leaveRoom(activeRoom.roomCode);
+        await signalRService.leaveRoomGroup(activeRoom.roomCode);
+      } catch (err) {
+        console.warn('Error leaving room on exit:', err);
+      }
+    }
+    setActiveMatch(null);
+    setActiveRoom(null);
+    setPrivateState(null);
     setRecoverableMatch(null);
+    setCurrentPage('home');
   };
 
   // Handle Create Room
@@ -318,11 +359,7 @@ export const App: React.FC = () => {
             initialPrivateState={privateState}
             currentUser={currentUser}
             roomCode={activeRoom.roomCode}
-            onExitGame={() => {
-              setActiveMatch(null);
-              setPrivateState(null);
-              setCurrentPage('home');
-            }}
+            onExitGame={handleExitGame}
           />
         )}
       </main>
@@ -373,21 +410,31 @@ export const App: React.FC = () => {
                 <button
                   className="btn btn-primary"
                   onClick={handleResumeActiveMatch}
-                  style={{ padding: '0.85rem 1rem', fontSize: '1.05rem', fontWeight: 800 }}
+                  disabled={isProcessingRecovery}
+                  style={{
+                    padding: '0.85rem 1rem',
+                    fontSize: '1.05rem',
+                    fontWeight: 800,
+                    opacity: isProcessingRecovery ? 0.7 : 1,
+                    cursor: isProcessingRecovery ? 'not-allowed' : 'pointer'
+                  }}
                 >
-                  العودة إلى المباراة
+                  {isProcessingRecovery ? 'جاري التحميل...' : 'العودة إلى المباراة'}
                 </button>
                 <button
                   className="btn btn-secondary"
                   onClick={handleAbandonActiveMatch}
+                  disabled={isProcessingRecovery}
                   style={{
                     padding: '0.75rem 1rem',
                     fontSize: '0.95rem',
                     color: '#f87171',
-                    borderColor: 'rgba(239, 68, 68, 0.4)'
+                    borderColor: 'rgba(239, 68, 68, 0.4)',
+                    opacity: isProcessingRecovery ? 0.7 : 1,
+                    cursor: isProcessingRecovery ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  مغادرة المباراة
+                  {isProcessingRecovery ? 'جاري الانسحاب...' : 'مغادرة المباراة'}
                 </button>
               </div>
             </div>
