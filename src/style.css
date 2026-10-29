@@ -321,17 +321,18 @@ h1, h2, h3, h4, h5, h6 {
   animation: fadeIn 0.2s ease-out;
 }
 
-.modal-content {
-  background: #1B5142;
-  border: 1px solid #426B5D;
+.modal-content,
+div.modal-content {
+  background: #1B5142 !important;
+  border: 1px solid #426B5D !important;
   border-radius: 1.25rem;
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg) !important;
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  color: var(--text-main);
+  color: var(--text-main) !important;
 }
 
 .modal-header {
@@ -990,4 +991,213 @@ table tbody tr:hover {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ==========================================================================
+   COMPREHENSIVE COLOR-CONSISTENCY AUDIT OVERRIDES
+   Theme: Dark Green & Muted Gold
+   - Main Background: #123C32
+   - Primary Cards / Panels: #1B5142
+   - Secondary Surfaces / Elevated Elements: #204B3F
+   - Primary Accent & Action Buttons: #D9B56D
+   - Text on Gold: #20382F
+   - Primary Text: #F5F3EA
+   - Secondary Text: #B8C9C0
+   - Borders & Separators: #426B5D
+   ========================================================================== */
+
+/* 1. HOMEPAGE / LANDING PAGE HERO & PILL BANNER */
+/* Replace brown hero background gradients with rich dark green */
+section[style*="rgba(39, 23, 12"],
+section[style*="linear-gradient(180deg, rgba(39, 23, 12"],
+section[style*="radial-gradient(ellipse at 50% 20%"] {
+  background: linear-gradient(180deg, rgba(27, 81, 66, 0.75) 0%, #123C32 100%) !important;
+  border-bottom: 1px solid #426B5D !important;
+}
+
+/* Hero sparkles banner pill - replace brown pill with muted gold tint */
+div[style*="rgba(111, 71, 42"],
+div[style*="rgb(111, 71, 42)"],
+div[style*="#e2ba9b"] {
+  background: rgba(217, 181, 109, 0.15) !important;
+  border: 1px solid rgba(217, 181, 109, 0.4) !important;
+  color: #D9B56D !important;
+}
+
+/* 2. FOOTER - Replace legacy black-brown #0d0b09 with main theme background */
+footer,
+footer[style*="#0d0b09"],
+footer[style*="rgb(13, 11, 9)"] {
+  background: #123C32 !important;
+  border-top: 1px solid #426B5D !important;
+  color: #B8C9C0 !important;
+}
+footer span,
+footer p,
+footer div {
+  color: #B8C9C0 !important;
+}
+footer strong,
+footer span[style*="var(--platinum-silver)"] {
+  color: #F5F3EA !important;
+}
+
+/* 3. VOICE CHAT CONTROLS - Replace brown surfaces, buttons, and borders */
+/* Outer container */
+div[style*="rgba(32, 23, 16"],
+div[style*="rgb(32, 23, 16)"] {
+  background: #1B5142 !important;
+  border: 1px solid #426B5D !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+/* Unmuted Mic Button - Muted gold accent */
+button[style*="#7a4e2d"],
+button[style*="rgb(122, 78, 45)"] {
+  background: #D9B56D !important;
+  color: #20382F !important;
+  border: 1px solid #D9B56D !important;
+  box-shadow: var(--shadow-btn) !important;
+}
+button[style*="#7a4e2d"]:hover,
+button[style*="rgb(122, 78, 45)"]:hover {
+  background: #E2C485 !important;
+  box-shadow: var(--shadow-btn-hover) !important;
+}
+
+/* Muted Mic / Speaker Buttons - Secondary green surface */
+button[style*="#2d241e"],
+button[style*="rgb(45, 36, 30)"] {
+  background: #204B3F !important;
+  color: #B8C9C0 !important;
+  border: 1px solid #426B5D !important;
+}
+button[style*="#2d241e"]:hover,
+button[style*="rgb(45, 36, 30)"]:hover {
+  background: #265a4c !important;
+  border-color: #D9B56D !important;
+}
+
+/* Brown borders on audio buttons */
+button[style*="#4b3e34"],
+button[style*="rgb(75, 62, 52)"] {
+  border-color: #426B5D !important;
+}
+
+/* 4. GAME TABLE HEADER & TURN INDICATOR */
+/* Game Table Header Bar */
+.game-table-header,
+div[style*="rgba(26, 18, 12"],
+div[style*="rgb(26, 18, 12)"] {
+  background: rgba(27, 81, 66, 0.95) !important;
+  border-bottom: 1px solid #426B5D !important;
+}
+
+/* Turn Status: Inactive turn pill (replace brown #2a221b) */
+div[style*="#2a221b"],
+div[style*="rgb(42, 34, 27)"] {
+  background: #204B3F !important;
+  border: 1px solid #426B5D !important;
+  color: #B8C9C0 !important;
+}
+
+/* Opponent Score Pill & Non-active team scores */
+div[style*="rgba(56, 189, 248"] {
+  background: rgba(32, 75, 63, 0.6) !important;
+  border: 1.5px solid #426B5D !important;
+}
+div[style*="rgba(56, 189, 248"] span,
+span[style*="#38bdf8"] {
+  color: #B8C9C0 !important;
+}
+
+/* Score separator colons */
+span[style*="#64748b"] {
+  color: #426B5D !important;
+}
+
+/* 5. PLAYER HAND CONTAINER - Replace brown gradient */
+.player-hand-container,
+div[style*="rgba(32, 23, 16, 0.98)"],
+div[style*="rgba(18, 13, 9, 0.99)"] {
+  background: linear-gradient(180deg, #1B5142 0%, #123C32 100%) !important;
+  border-top: 2px solid #426B5D !important;
+  box-shadow: 0 -4px 18px rgba(10, 26, 21, 0.35) !important;
+}
+
+/* 6. MODALS, DIALOGS & OVERLAYS */
+/* Inner panels with legacy dark blue / black / brown shades */
+div[style*="#131b28"],
+div[style*="#0c121d"],
+div[style*="#0d131f"],
+div[style*="#0a0f18"],
+div[style*="rgba(39, 23, 12"],
+div[style*="rgba(7, 10, 16"],
+div[style*="rgba(15, 23, 42"] {
+  background: #204B3F !important;
+  border-color: #426B5D !important;
+  color: #F5F3EA !important;
+}
+div[style*="#1e293b"] {
+  border-color: #426B5D !important;
+}
+
+/* Rotate Device Overlay */
+div[style*="#0f172a"] {
+  background: radial-gradient(circle at center, #1B5142 0%, #123C32 100%) !important;
+}
+
+/* 7. LOBBY ROOM PAGE */
+/* Empty seat card dashed border */
+div[style*="2px dashed rgba(229, 231, 235"] {
+  border-color: #426B5D !important;
+  background: rgba(18, 60, 50, 0.25) !important;
+}
+
+/* Host badge */
+.badge[style*="rgba(255,255,255,0.05)"] {
+  background: rgba(217, 181, 109, 0.15) !important;
+  color: #D9B56D !important;
+  border: 1px solid rgba(217, 181, 109, 0.4) !important;
+}
+
+/* 8. ADMIN PANEL */
+/* Table header row */
+tr[style*="#130e0b"],
+tr[style*="rgb(19, 14, 11)"] {
+  background: #204B3F !important;
+  border-bottom: 1px solid #426B5D !important;
+}
+
+/* 9. GLOBAL HEADINGS, TEXT & SEPARATORS */
+h1, h2, h3, h4, h5, h6 {
+  color: #F5F3EA !important;
+}
+
+/* Text on gold actions must maintain dark green contrast */
+.btn-primary,
+.btn-primary *,
+.endpoint-marker,
+.endpoint-marker * {
+  color: #20382F !important;
+}
+
+/* Secondary / muted text labels */
+span[style*="#94a3b8"],
+p[style*="#94a3b8"],
+div[style*="#94a3b8"],
+span[style*="#9ca3af"],
+span[style*="#8c8278"],
+span[style*="#cbd5e1"] {
+  color: #B8C9C0 !important;
+}
+
+/* Subtle separator lines */
+div[style*="width: 1px"],
+div[style*="height: 1px"],
+div[style*="border-bottom: 1px solid rgba(229, 231, 235"],
+div[style*="border-top: 1px solid rgba(229, 231, 235"],
+div[style*="border-top: 1px solid rgba(255, 255, 255, 0.08)"] {
+  background-color: #426B5D !important;
+  border-color: #426B5D !important;
 }
