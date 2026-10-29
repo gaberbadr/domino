@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
-import { GameMatchDto, BoardPlacedTile, GameMode, BoardEnd, MatchStatus, RoundEndResultDto } from '../types/domino';
+import { GameMatchDto, BoardPlacedTile, GameMode, BoardEnd, MatchStatus, RoundEndResultDto, UserProfileDto } from '../types/domino';
 import { DominoTileView } from './DominoTileView';
 import { ConcealedHandView } from './ConcealedHandView';
 import { DominoBankView } from './DominoBankView';
@@ -10,10 +10,12 @@ import { BlockedRoundTableOverlay } from './BlockedRoundTableOverlay';
 import { calculateBoardLayout } from '../services/dominoLayoutEngine';
 import { STRINGS } from '../constants/strings';
 import { Clock, Hand, LogOut, Volume2, Sliders, History, X, Award, Scale, ShieldAlert, Maximize2, Minimize2, MoreVertical, Trophy } from 'lucide-react';
+import { livekitVoiceService, VoiceParticipant } from '../services/livekitVoice';
 
 interface GameBoardProps {
   match: GameMatchDto;
   currentUserId: string;
+  currentUser?: UserProfileDto;
   canDraw: boolean;
   canSkip: boolean;
   isSkipping?: boolean;
@@ -83,6 +85,7 @@ export const TurnTimerPill: React.FC<{ turnDeadlineUtc?: string | null }> = Reac
 export const GameBoard: React.FC<GameBoardProps> = React.memo(({
   match,
   currentUserId,
+  currentUser,
   canDraw,
   canSkip,
   isSkipping = false,
@@ -111,6 +114,34 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Real-time LiveKit participant state for table voice indicators
+  const [voiceParticipants, setVoiceParticipants] = useState<VoiceParticipant[]>(() =>
+    livekitVoiceService.getParticipants()
+  );
+
+  useEffect(() => {
+    const unsubscribe = livekitVoiceService.subscribe({
+      onParticipantsChanged: (list) => setVoiceParticipants(list),
+      onSpeakingChanged: (id, speaking) => {
+        setVoiceParticipants((prev) =>
+          prev.map((p) => {
+            if (id === 'local' && p.isLocal) return { ...p, isSpeaking: speaking };
+            if (p.userId === id) return { ...p, isSpeaking: speaking };
+            return p;
+          })
+        );
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const getPlayerVoiceState = (userId?: string) => {
+    if (!userId) return null;
+    const p = voiceParticipants.find((vp) => vp.userId === userId);
+    if (!p) return null;
+    return { isSpeaking: p.isSpeaking, isMuted: p.isMuted };
+  };
 
   const feltCanvasRef = useRef<HTMLDivElement>(null);
   const [boardDimensions, setBoardDimensions] = useState<{ width: number; height: number }>({
@@ -605,7 +636,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
         {/* Group 3: Audio & Voice Controls */}
         <div className="toolbar-group audio-controls-group" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
           {roomCode && (
-            <VoiceChatControls roomCode={roomCode} compact={true} />
+            <VoiceChatControls roomCode={roomCode} currentUser={currentUser} compact={true} autoJoin={true} />
           )}
 
           {onOpenSoundboard && (
@@ -775,7 +806,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>
                   المحادثة الصوتية المباشرة:
                 </span>
-                <VoiceChatControls roomCode={roomCode} compact={false} />
+                <VoiceChatControls roomCode={roomCode} currentUser={currentUser} compact={false} autoJoin={true} />
               </div>
             )}
           </div>
@@ -818,6 +849,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
               mode={match.mode}
               position="top"
               isTeammate={match.mode === GameMode.Quadruple && topPlayer.teamIndex === myPlayer.teamIndex}
+              voiceState={getPlayerVoiceState(topPlayer.userId)}
             />
           )}
         </div>
@@ -845,6 +877,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
               mode={match.mode}
               position="left"
               isTeammate={false}
+              voiceState={getPlayerVoiceState(leftPlayer.userId)}
             />
           </div>
         )}
@@ -1127,6 +1160,7 @@ export const GameBoard: React.FC<GameBoardProps> = React.memo(({
                 mode={match.mode}
                 position="right"
                 isTeammate={false}
+                voiceState={getPlayerVoiceState(rightPlayer.userId)}
               />
             )}
 

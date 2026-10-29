@@ -25,6 +25,7 @@ import { InvalidDealModal } from '../components/InvalidDealModal';
 import { RoundEndModal } from '../components/RoundEndModal';
 import { MatchEndModal } from '../components/MatchEndModal';
 import { VoiceChatControls } from '../components/VoiceChatControls';
+import { livekitVoiceService } from '../services/livekitVoice';
 import { SoundboardDrawer } from '../components/SoundboardDrawer';
 import { SoundSettingsModal } from '../components/SoundSettingsModal';
 import { soundService } from '../services/soundService';
@@ -155,8 +156,16 @@ export const GamePage: React.FC<GamePageProps> = ({
       // Confetti fallback
     }
     setMatchEndResult(null);
+    livekitVoiceService.leaveRoom().catch(() => {});
     onExitGame();
   }, [onExitGame]);
+
+  // Cleanly disconnect voice session when leaving the game
+  useEffect(() => {
+    return () => {
+      livekitVoiceService.leaveRoom().catch(() => {});
+    };
+  }, []);
 
   // Authoritative dynamic legal moves calculation
   const isMyTurn = match.currentTurnUserId === currentUser.userId;
@@ -742,6 +751,7 @@ export const GamePage: React.FC<GamePageProps> = ({
       <GameBoard
         match={match}
         currentUserId={currentUser.userId}
+        currentUser={currentUser}
         canDraw={privateState.canDraw}
         canSkip={privateState.canSkip}
         isDrawing={isDrawing}

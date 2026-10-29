@@ -7,7 +7,8 @@ import {
   LocalParticipant,
   Participant,
   RemoteTrackPublication,
-  RemoteTrack
+  RemoteTrack,
+  AudioPresets
 } from 'livekit-client';
 import { api, getUserFromToken } from './api';
 
@@ -50,8 +51,10 @@ export class LiveKitVoiceService {
   private isSpeakerMuted: boolean = false;
   private isAutoplayBlocked: boolean = false;
   private participants: Map<string, VoiceParticipant> = new Map();
+  private attachedAudioElements: Map<string, HTMLAudioElement> = new Map();
   private listeners: Set<LiveKitVoiceListener> = new Set();
   private isConnecting: boolean = false;
+  private connectingPromise: Promise<void> | null = null;
 
   constructor() {
     // Setup window-level unlock listener on first user click
@@ -140,16 +143,26 @@ export class LiveKitVoiceService {
       return;
     }
 
-    if (this.isConnecting) {
-      return;
+    // Share pending connection attempt across components/remounts to prevent duplicate connections
+    if (this.connectingPromise) {
+      return this.connectingPromise;
     }
 
+    this.connectingPromise = this.doJoinRoom(cleanRoomCode, userId, userName);
+    try {
+      await this.connectingPromise;
+    } finally {
+      this.connectingPromise = null;
+    }
+  }
+
+  private async doJoinRoom(cleanRoomCode: string, userId?: string, userName?: string): Promise<void> {
     this.isConnecting = true;
     this.currentRoomCode = cleanRoomCode;
     this.setConnectionState('connecting');
 
     try {
-      // 1. Fetch room-scoped LiveKit access token from backend
+      // 1. Fetch room-scoped access token from backend
       const tokenDto = await api.voice.getToken(cleanRoomCode);
       if (!tokenDto || !tokenDto.token) {
         throw new Error('لم يتم استلام تصريح الدخول لغرفة الصوت من الخادم');
@@ -168,32 +181,46 @@ export class LiveKitVoiceService {
         this.room = null;
       }
 
-      // 2. Initialize official LiveKit Room with noise suppression and echo cancellation
+      // 2. Initialize official LiveKit Room with high-fidelity speech processing:
+      // - WebRTC Acoustic Echo Cancellation (AEC)
+      // - Noise suppression & AGC
+      // - Explicit mono (channelCount: 1) to eliminate stereo phasing/comb-filtering
+      // - 48kHz sampling matching native Opus
+      // - DTX disabled (dtx: false) to prevent speech gating and metallic syllable cutoffs
+      // - AudioPresets.music (48kbps fullband) for warm, natural human vocal resonance
       const room = new Room({
         adaptiveStream: true,
         dynacast: true,
         audioCaptureDefaults: {
           autoGainControl: true,
           echoCancellation: true,
-          noiseSuppression: true
+          noiseSuppression: true,
+          channelCount: 1,
+          sampleRate: 48000
+        },
+        publishDefaults: {
+          audioPreset: AudioPresets.music,
+          dtx: false,
+          red: true
         }
       });
 
       this.room = room;
       this.setupRoomListeners(room);
 
-      // 3. Connect to LiveKit Cloud
+      // 3. Connect to voice room
       await room.connect(liveKitUrl, tokenDto.token);
 
       // 4. Register local participant in state
       const localId = room.localParticipant.identity || userId || '';
       const localName = room.localParticipant.name || userName || 'أنا';
 
+      this.participants.clear();
       this.participants.set(localId, {
         userId: localId,
         userName: localName,
         isSpeaking: false,
-        isMuted: true,
+        isMuted: true, // Local microphone is MUTED by default
         isLocal: true
       });
 
@@ -203,12 +230,20 @@ export class LiveKitVoiceService {
       });
 
       this.setConnectionState('connected');
+      // Microphone is muted by default; speaker is enabled so player hears others
+      this.setMicState('muted');
       this.notifyParticipants();
 
-      // 5. Automatically enable local microphone if not permission denied
-      await this.enableMicrophone();
+      // Automatically attach and play any existing remote audio tracks (deduplicated)
+      room.remoteParticipants.forEach((p) => {
+        p.trackPublications.forEach((pub) => {
+          if (pub.track && pub.track.kind === Track.Kind.Audio) {
+            this.attachRemoteAudioTrack(pub.track as RemoteTrack, p.identity);
+          }
+        });
+      });
     } catch (err: any) {
-      console.error('Failed to connect to LiveKit voice room:', err);
+      console.error('Failed to connect to voice room:', err);
       this.setConnectionState('error');
       const msg = err.message || 'فشل الاتصال بغرفة الصوت';
       this.notifyError(msg);
@@ -223,19 +258,42 @@ export class LiveKitVoiceService {
    */
   public async leaveRoom(): Promise<void> {
     this.isConnecting = false;
+    this.connectingPromise = null;
     if (this.room) {
       try {
         await this.room.disconnect();
       } catch (err) {
-        console.warn('Error during LiveKit room disconnect:', err);
+        console.warn('Error during voice room disconnect:', err);
       }
       this.room = null;
     }
 
-    // Remove all attached audio elements
+    // Stop and clean up all tracked audio elements
+    this.attachedAudioElements.forEach((el) => {
+      try {
+        el.pause();
+        el.srcObject = null;
+      } catch {
+        // ignore
+      }
+      if (el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+    });
+    this.attachedAudioElements.clear();
+
+    // Remove any remaining DOM audio elements tagged for livekit voice
     if (typeof document !== 'undefined') {
-      const audioEls = document.querySelectorAll('audio[data-livekit-voice]');
-      audioEls.forEach((el) => el.remove());
+      const audioEls = document.querySelectorAll<HTMLAudioElement>('audio[data-livekit-voice]');
+      audioEls.forEach((el) => {
+        try {
+          el.pause();
+          el.srcObject = null;
+        } catch {
+          // ignore
+        }
+        el.remove();
+      });
     }
 
     this.currentRoomCode = null;
@@ -265,7 +323,17 @@ export class LiveKitVoiceService {
 
     try {
       this.setMicState('connecting');
-      await this.room.localParticipant.setMicrophoneEnabled(!muted);
+      if (muted) {
+        await this.room.localParticipant.setMicrophoneEnabled(false);
+      } else {
+        await this.room.localParticipant.setMicrophoneEnabled(true, {
+          autoGainControl: true,
+          echoCancellation: true,
+          noiseSuppression: true,
+          channelCount: 1,
+          sampleRate: 48000
+        });
+      }
       this.setMicState(muted ? 'muted' : 'active');
 
       const localId = this.room.localParticipant.identity;
@@ -297,6 +365,10 @@ export class LiveKitVoiceService {
   public setSpeakerMuted(muted: boolean): void {
     this.isSpeakerMuted = muted;
 
+    this.attachedAudioElements.forEach((el) => {
+      el.muted = muted;
+    });
+
     if (typeof document !== 'undefined') {
       const audioEls = document.querySelectorAll<HTMLAudioElement>('audio[data-livekit-voice]');
       audioEls.forEach((el) => {
@@ -310,6 +382,12 @@ export class LiveKitVoiceService {
   public unlockAudio(): void {
     this.isAutoplayBlocked = false;
     this.notifyAutoplayBlocked(false);
+
+    this.attachedAudioElements.forEach((el) => {
+      if (el.paused && !this.isSpeakerMuted) {
+        el.play().catch(() => {});
+      }
+    });
 
     if (typeof document !== 'undefined') {
       const audioEls = document.querySelectorAll<HTMLAudioElement>('audio[data-livekit-voice]');
@@ -361,22 +439,7 @@ export class LiveKitVoiceService {
       RoomEvent.TrackSubscribed,
       (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
         if (track.kind === Track.Kind.Audio) {
-          const audioEl = track.attach();
-          audioEl.setAttribute('data-livekit-voice', 'true');
-          audioEl.setAttribute('data-participant-id', participant.identity);
-          audioEl.style.display = 'none';
-          audioEl.muted = this.isSpeakerMuted;
-
-          if (!document.body.contains(audioEl)) {
-            document.body.appendChild(audioEl);
-          }
-
-          audioEl.play().catch((err: any) => {
-            if (err.name === 'NotAllowedError') {
-              this.isAutoplayBlocked = true;
-              this.notifyAutoplayBlocked(true);
-            }
-          });
+          this.attachRemoteAudioTrack(track, participant.identity);
         }
       }
     );
@@ -384,11 +447,7 @@ export class LiveKitVoiceService {
     room.on(
       RoomEvent.TrackUnsubscribed,
       (track: RemoteTrack) => {
-        track.detach().forEach((el) => {
-          if (el.parentNode) {
-            el.parentNode.removeChild(el);
-          }
-        });
+        this.detachRemoteAudioTrack(track);
       }
     );
 
@@ -443,12 +502,98 @@ export class LiveKitVoiceService {
     });
   }
 
+  /**
+   * Dedicated single-source helper to attach incoming remote audio tracks.
+   * Strictly prevents duplicate <audio> elements for the same track, eliminating acoustic
+   * comb filtering (which causes thin/hollow/metallic sound), double-volume, and echo loops.
+   */
+  private attachRemoteAudioTrack(track: RemoteTrack, participantIdentity: string): void {
+    if (typeof document === 'undefined') return;
+    if (track.kind !== Track.Kind.Audio) return;
+
+    const trackKey = track.sid || `${participantIdentity}_audio`;
+
+    // Deduplicate: check if an audio element for this track already exists
+    let audioEl = this.attachedAudioElements.get(trackKey);
+    if (!audioEl || !document.body.contains(audioEl)) {
+      const existingInDom = document.querySelector<HTMLAudioElement>(`audio[data-track-sid="${trackKey}"]`);
+      if (existingInDom) {
+        audioEl = existingInDom;
+      } else {
+        audioEl = track.attach();
+        audioEl.setAttribute('data-livekit-voice', 'true');
+        audioEl.setAttribute('data-participant-id', participantIdentity);
+        audioEl.setAttribute('data-track-sid', trackKey);
+        audioEl.style.display = 'none';
+        if (!document.body.contains(audioEl)) {
+          document.body.appendChild(audioEl);
+        }
+      }
+      this.attachedAudioElements.set(trackKey, audioEl);
+    }
+
+    // Apply speaker mute state and play
+    audioEl.muted = this.isSpeakerMuted;
+    if (audioEl.paused && !this.isSpeakerMuted) {
+      audioEl.play().catch((err: any) => {
+        if (err.name === 'NotAllowedError') {
+          this.isAutoplayBlocked = true;
+          this.notifyAutoplayBlocked(true);
+        }
+      });
+    }
+  }
+
+  /**
+   * Safely detaches and cleans up remote audio tracks.
+   */
+  private detachRemoteAudioTrack(track: RemoteTrack): void {
+    const trackKey = track.sid;
+    if (trackKey && this.attachedAudioElements.has(trackKey)) {
+      const el = this.attachedAudioElements.get(trackKey);
+      if (el) {
+        try {
+          el.pause();
+          el.srcObject = null;
+        } catch {
+          // ignore
+        }
+        if (el.parentNode) {
+          el.parentNode.removeChild(el);
+        }
+      }
+      this.attachedAudioElements.delete(trackKey);
+    }
+
+    try {
+      track.detach().forEach((el) => {
+        try {
+          el.pause();
+          el.srcObject = null;
+        } catch {
+          // ignore
+        }
+        if (el.parentNode) {
+          el.parentNode.removeChild(el);
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }
+
   private async enableMicrophone(): Promise<void> {
     if (!this.room) return;
 
     try {
       this.setMicState('connecting');
-      await this.room.localParticipant.setMicrophoneEnabled(true);
+      await this.room.localParticipant.setMicrophoneEnabled(true, {
+        autoGainControl: true,
+        echoCancellation: true,
+        noiseSuppression: true,
+        channelCount: 1,
+        sampleRate: 48000
+      });
       this.setMicState('active');
 
       const localId = this.room.localParticipant.identity;
@@ -498,9 +643,33 @@ export class LiveKitVoiceService {
   private removeRemoteParticipant(identity: string): void {
     this.participants.delete(identity);
 
+    // Clean up all tracked audio elements belonging to this participant
+    for (const [key, el] of Array.from(this.attachedAudioElements.entries())) {
+      if (el.getAttribute('data-participant-id') === identity) {
+        try {
+          el.pause();
+          el.srcObject = null;
+        } catch {
+          // ignore
+        }
+        if (el.parentNode) {
+          el.parentNode.removeChild(el);
+        }
+        this.attachedAudioElements.delete(key);
+      }
+    }
+
     if (typeof document !== 'undefined') {
-      const audioEls = document.querySelectorAll(`audio[data-participant-id="${identity}"]`);
-      audioEls.forEach((el) => el.remove());
+      const audioEls = document.querySelectorAll<HTMLAudioElement>(`audio[data-participant-id="${identity}"]`);
+      audioEls.forEach((el) => {
+        try {
+          el.pause();
+          el.srcObject = null;
+        } catch {
+          // ignore
+        }
+        el.remove();
+      });
     }
   }
 

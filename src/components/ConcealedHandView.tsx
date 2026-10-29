@@ -1,7 +1,7 @@
 import React from 'react';
 import { DominoTileView } from './DominoTileView';
 import { GameMode } from '../types/domino';
-import { Clock } from 'lucide-react';
+import { Clock, Mic, MicOff, Volume2 } from 'lucide-react';
 
 interface ConcealedHandViewProps {
   displayName: string;
@@ -12,6 +12,7 @@ interface ConcealedHandViewProps {
   mode: GameMode;
   position: 'top' | 'right' | 'left';
   isTeammate?: boolean;
+  voiceState?: { isSpeaking: boolean; isMuted: boolean } | null;
 }
 
 /**
@@ -81,7 +82,8 @@ export const ConcealedHandView: React.FC<ConcealedHandViewProps> = ({
   teamIndex,
   mode,
   position,
-  isTeammate = false
+  isTeammate = false,
+  voiceState = null
 }) => {
   // Clamp number of visual tiles to display for the larger fan on desktop
   const visualTileCount = Math.min(tileCount, 9);
@@ -163,6 +165,51 @@ export const ConcealedHandView: React.FC<ConcealedHandViewProps> = ({
             style={{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }}
           >
             {isTeammate ? 'شريكك' : `فريق ${teamIndex}`}
+          </span>
+        )}
+
+        {/* Voice Chat Connection & Speaking Indicator */}
+        {voiceState && (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '2px',
+              padding: '0.1rem 0.35rem',
+              borderRadius: '9999px',
+              background: voiceState.isSpeaking
+                ? 'rgba(16, 185, 129, 0.25)'
+                : voiceState.isMuted
+                ? 'rgba(239, 68, 68, 0.2)'
+                : 'rgba(16, 185, 129, 0.15)',
+              border: voiceState.isSpeaking
+                ? '1px solid #10b981'
+                : voiceState.isMuted
+                ? '1px solid rgba(239, 68, 68, 0.4)'
+                : '1px solid rgba(16, 185, 129, 0.3)',
+              color: voiceState.isSpeaking ? '#34d399' : voiceState.isMuted ? '#f87171' : '#10b981',
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              boxShadow: voiceState.isSpeaking ? '0 0 8px rgba(16, 185, 129, 0.6)' : 'none',
+              transition: 'all 0.2s ease',
+              flexShrink: 0
+            }}
+            title={
+              voiceState.isSpeaking
+                ? 'اللاعب يتحدث الآن في المحادثة الصوتية 🎙️'
+                : voiceState.isMuted
+                ? 'متصل بالصوت (المايكروفون مكتوم 🔇)'
+                : 'متصل بالمحادثة الصوتية 🔊'
+            }
+          >
+            {voiceState.isSpeaking ? (
+              <Mic size={10} />
+            ) : voiceState.isMuted ? (
+              <MicOff size={10} />
+            ) : (
+              <Volume2 size={10} />
+            )}
+            <span style={{ fontSize: '0.62rem' }}>صوت</span>
           </span>
         )}
 

@@ -25,12 +25,14 @@ interface VoiceChatControlsProps {
   roomCode: string;
   currentUser?: UserProfileDto;
   compact?: boolean;
+  autoJoin?: boolean;
 }
 
 export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
   roomCode,
   currentUser,
-  compact = false
+  compact = false,
+  autoJoin = true
 }) => {
   const [connectionState, setConnectionState] = useState<VoiceConnectionState>(
     livekitVoiceService.getConnectionState()
@@ -50,6 +52,14 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
   const [showRoster, setShowRoster] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const hasAutoJoinedRef = useRef<boolean>(false);
+  const userExplicitlyLeftRef = useRef<boolean>(false);
+
+  // Reset auto-join tracking when roomCode changes
+  useEffect(() => {
+    hasAutoJoinedRef.current = false;
+    userExplicitlyLeftRef.current = false;
+  }, [roomCode]);
 
   // Close roster dropdown on outside click
   useEffect(() => {
@@ -63,7 +73,7 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
   }, []);
 
   useEffect(() => {
-    // 1. Subscribe to real-time LiveKit group voice events
+    // 1. Subscribe to real-time group voice events
     const unsubscribe = livekitVoiceService.subscribe({
       onConnectionStateChanged: (state) => setConnectionState(state),
       onMicStateChanged: (state) => setMicState(state),
@@ -89,6 +99,7 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
   const handleJoinVoice = async () => {
     livekitVoiceService.unlockAudio();
     setErrorMessage(null);
+    userExplicitlyLeftRef.current = false;
 
     const tokenUser = getUserFromToken();
     const userId = currentUser?.userId || tokenUser?.userId || '';
@@ -97,11 +108,26 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
     try {
       await livekitVoiceService.joinRoom(roomCode, userId, userName);
     } catch (err: any) {
-      console.warn('Failed to join LiveKit voice room:', err);
+      console.warn('Voice room connection notice:', err);
     }
   };
 
+  // Automatically join voice when entering active game room
+  useEffect(() => {
+    if (
+      autoJoin &&
+      roomCode &&
+      connectionState === 'disconnected' &&
+      !hasAutoJoinedRef.current &&
+      !userExplicitlyLeftRef.current
+    ) {
+      hasAutoJoinedRef.current = true;
+      handleJoinVoice().catch(() => {});
+    }
+  }, [autoJoin, roomCode, connectionState]);
+
   const handleLeaveVoice = async () => {
+    userExplicitlyLeftRef.current = true;
     await livekitVoiceService.leaveRoom();
   };
 
@@ -184,7 +210,7 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
             transition: 'all 0.2s ease'
           }}
-          title="انضمام للمحادثة الصوتية الجماعية عبر LiveKit"
+          title="انضمام للمحادثة الصوتية"
         >
           <Headphones size={compact ? 13 : 15} style={{ color: '#D9B56D' }} />
           <span>انضمام للصوت</span>
@@ -252,7 +278,7 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
       >
         <Loader2 size={compact ? 13 : 15} className="animate-spin" />
         <span>
-          {connectionState === 'reconnecting' ? 'إعادة الاتصال بالصوت...' : 'جاري الاتصال بـ LiveKit...'}
+          {connectionState === 'reconnecting' ? 'إعادة الاتصال بالصوت...' : 'جاري الاتصال...'}
         </span>
       </div>
     );
@@ -336,7 +362,7 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
           border: '1px solid rgba(16, 185, 129, 0.3)',
           cursor: 'pointer'
         }}
-        title={`LiveKit متصل: ${participants.length} في الغرفة (انقر لعرض قائمة اللاعبين)`}
+        title={`المحادثة الصوتية: ${participants.length} متصل (انقر لعرض قائمة اللاعبين)`}
       >
         <Radio size={compact ? 11 : 12} className="turn-pulse" />
         <Users size={compact ? 11 : 12} />
@@ -508,7 +534,7 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({
             }}
           >
             <span>المتصلون بالصوت ({participants.length})</span>
-            <span style={{ color: '#10b981', fontSize: '0.7rem' }}>LiveKit Cloud</span>
+            <span style={{ color: '#10b981', fontSize: '0.7rem' }}>صوت مباشر</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: 180, overflowY: 'auto' }}>
