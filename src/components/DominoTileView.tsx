@@ -127,7 +127,7 @@ const brassGradId = 'domino-brass-grad';
 const pipGradId = 'domino-pip-grad';
 const concealedGradId = 'domino-concealed-grad';
 
-export const DominoTileView: React.FC<DominoTileViewProps> = ({
+export const DominoTileView: React.FC<DominoTileViewProps> = React.memo(({
   tile,
   isConcealed = false,
   orientation = 'vertical',
@@ -370,4 +370,4 @@ export const DominoTileView: React.FC<DominoTileViewProps> = ({
       </svg>
     </div>
   );
-};
+});

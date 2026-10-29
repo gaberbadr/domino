@@ -20,6 +20,7 @@ export const STRINGS = {
   // Game Actions
   yourTurn: "دورك! العب ورقة",
   waitForTurn: "استنى دورك..",
+  waitingFirstMove: "في انتظار لعب أول ورقة على الطاولة",
   drawTile: "اسحب ورقة",
   skipTurn: "عدّي (Pass)",
   autoSkipIn: "تعدية تلقائية بعد",

@@ -6,7 +6,8 @@ import {
   JoinRoomRequest,
   PlayerPrivateStateDto,
   RoomDto,
-  UserProfileDto
+  UserProfileDto,
+  ActiveMatchRecoveryDto
 } from '../types/domino';
 import { appConfig } from '../config/appConfig';
 
@@ -168,6 +169,12 @@ export const api = {
       request<{ success: boolean }>(`/Game/matches/${matchId}/teammate-start-approval`, {
         method: 'POST',
         body: JSON.stringify({ matchId, approved })
+      }),
+    getActiveMatch: () =>
+      request<ActiveMatchRecoveryDto>('/Game/active-match'),
+    continueNextRound: (matchId: string) =>
+      request<{ success: boolean }>(`/Game/matches/${matchId}/continue-next-round`, {
+        method: 'POST'
       })
   },
 

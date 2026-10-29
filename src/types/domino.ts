@@ -37,6 +37,8 @@ export interface DominoTile {
   pipSum?: number;
 }
 
+export type DominoTileDto = DominoTile;
+
 export interface BoardPlacedTile {
   tileId: number;
   leftPip: number;
@@ -197,5 +199,15 @@ export interface PlayTileRequest {
   matchId: string;
   tileId: number;
   chosenEnd?: BoardEnd;
+}
+
+export interface ActiveMatchRecoveryDto {
+  matchId: string;
+  roomCode: string;
+  match: GameMatchDto;
+  privateState: PlayerPrivateStateDto;
+  isRoundEnded: boolean;
+  agreedPlayersCount: number;
+  totalPlayersRequired: number;
 }
 

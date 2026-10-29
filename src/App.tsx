@@ -6,7 +6,8 @@ import {
   RoomDto,
   GameMatchDto,
   PlayerPrivateStateDto,
-  CreateRoomRequest
+  CreateRoomRequest,
+  ActiveMatchRecoveryDto
 } from './types/domino';
 import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
@@ -28,6 +29,7 @@ export const App: React.FC = () => {
   const [activeRoom, setActiveRoom] = useState<RoomDto | null>(null);
   const [activeMatch, setActiveMatch] = useState<GameMatchDto | null>(null);
   const [privateState, setPrivateState] = useState<PlayerPrivateStateDto | null>(null);
+  const [recoverableMatch, setRecoverableMatch] = useState<ActiveMatchRecoveryDto | null>(null);
 
   // Modals
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
@@ -119,10 +121,70 @@ export const App: React.FC = () => {
 
     setupSignalR();
 
+    // Check for active recoverable match
+    api.game.getActiveMatch().then((res) => {
+      if (res && res.match && res.match.id) {
+        setRecoverableMatch(res);
+      }
+    }).catch(() => {});
+
     return () => {
       mounted = false;
     };
   }, [currentUser]);
+
+  // Clean SignalR disconnect on browser tab closure
+  useEffect(() => {
+    const handleTabClosure = () => {
+      signalRService.stop().catch(() => {});
+    };
+    window.addEventListener('beforeunload', handleTabClosure);
+    window.addEventListener('pagehide', handleTabClosure);
+    return () => {
+      window.removeEventListener('beforeunload', handleTabClosure);
+      window.removeEventListener('pagehide', handleTabClosure);
+    };
+  }, []);
+
+  // Resume active recoverable match
+  const handleResumeActiveMatch = async () => {
+    if (!recoverableMatch) return;
+    try {
+      const room = await api.game.getRoom(recoverableMatch.roomCode);
+      setActiveRoom(room);
+    } catch {
+      setActiveRoom({
+        id: recoverableMatch.match.id,
+        roomCode: recoverableMatch.roomCode,
+        name: 'مباراة جارية',
+        mode: recoverableMatch.match.mode,
+        isPrivate: false,
+        maxPlayers: 2,
+        currentPlayersCount: 2,
+        hostId: '',
+        hostName: '',
+        status: 1 as any,
+        players: []
+      });
+    }
+    setActiveMatch(recoverableMatch.match);
+    setPrivateState(recoverableMatch.privateState);
+    setCurrentPage('game');
+    await signalRService.joinRoomGroup(recoverableMatch.roomCode);
+    setRecoverableMatch(null);
+  };
+
+  // Abandon active match and leave room
+  const handleAbandonActiveMatch = async () => {
+    if (!recoverableMatch) return;
+    try {
+      await api.game.leaveRoom(recoverableMatch.roomCode);
+      await signalRService.leaveRoomGroup(recoverableMatch.roomCode);
+    } catch {
+      // Ignore
+    }
+    setRecoverableMatch(null);
+  };
 
   // Handle Create Room
   const handleCreateRoom = async (data: CreateRoomRequest) => {
@@ -292,6 +354,45 @@ export const App: React.FC = () => {
           isOpen={isAdminOpen}
           onClose={() => setIsAdminOpen(false)}
         />
+      )}
+
+      {/* Recoverable Active Match Prompt Modal */}
+      {recoverableMatch && currentPage !== 'game' && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ textAlign: 'center', maxWidth: 440 }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--gold-primary)' }}>
+                مباراة جارية 🎲
+              </h3>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+                أنت ما زلت في مباراة جارية. ماذا تريد أن تفعل؟
+              </p>
+              <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleResumeActiveMatch}
+                  style={{ padding: '0.85rem 1rem', fontSize: '1.05rem', fontWeight: 800 }}
+                >
+                  العودة إلى المباراة
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleAbandonActiveMatch}
+                  style={{
+                    padding: '0.75rem 1rem',
+                    fontSize: '0.95rem',
+                    color: '#f87171',
+                    borderColor: 'rgba(239, 68, 68, 0.4)'
+                  }}
+                >
+                  مغادرة المباراة
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

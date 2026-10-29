@@ -4,9 +4,11 @@ import { DominoTileView } from './DominoTileView';
 import { ConcealedHandView } from './ConcealedHandView';
 import { DominoBankView } from './DominoBankView';
 import { ExitConfirmationModal } from './ExitConfirmationModal';
+import { AutoSkipButton } from './AutoSkipButton';
+import { VoiceChatControls } from './VoiceChatControls';
 import { calculateBoardLayout } from '../services/dominoLayoutEngine';
 import { STRINGS } from '../constants/strings';
-import { Clock, SkipForward, Hand, LogOut, Volume2, Sliders } from 'lucide-react';
+import { Clock, Hand, LogOut, Volume2, Sliders } from 'lucide-react';
 
 interface GameBoardProps {
   match: GameMatchDto;
@@ -15,6 +17,7 @@ interface GameBoardProps {
   canSkip: boolean;
   isDrawing?: boolean;
   isChoiceActive?: boolean;
+  roomCode?: string;
   onDraw: () => void;
   onSkip: () => void;
   onRequestTeammateStart?: () => void;
@@ -66,13 +69,14 @@ export const TurnTimerPill: React.FC<{ turnDeadlineUtc?: string | null }> = Reac
   );
 });
 
-export const GameBoard: React.FC<GameBoardProps> = ({
+export const GameBoard: React.FC<GameBoardProps> = React.memo(({
   match,
   currentUserId,
   canDraw,
   canSkip,
   isDrawing = false,
   isChoiceActive = false,
+  roomCode,
   onDraw,
   onSkip,
   onRequestTeammateStart,
@@ -82,36 +86,45 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   onOpenSoundboard,
   onOpenSoundSettings
 }) => {
-  const [autoSkipSeconds, setAutoSkipSeconds] = useState<number>(3);
   const [dragOverEnd, setDragOverEnd] = useState<BoardEnd | null>(null);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
-  const boardFeltRef = useRef<HTMLDivElement>(null);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
   const [boardDimensions, setBoardDimensions] = useState<{ width: number; height: number }>({
     width: 800,
     height: 500
   });
 
-  // Track board felt container size for dynamic responsive layout with threshold guard
+  // Observe outer table container size (avoids scrollbar-triggered layout oscillations)
   useEffect(() => {
-    if (!boardFeltRef.current) return;
+    const el = tableContainerRef.current;
+    if (!el) return;
+    let animId: number;
+
     const updateDims = () => {
-      if (boardFeltRef.current) {
-        const { clientWidth, clientHeight } = boardFeltRef.current;
-        if (clientWidth > 0 && clientHeight > 0) {
+      cancelAnimationFrame(animId);
+      animId = requestAnimationFrame(() => {
+        if (!tableContainerRef.current) return;
+        const w = tableContainerRef.current.clientWidth - 130;
+        const h = tableContainerRef.current.clientHeight - 85;
+        if (w > 100 && h > 100) {
           setBoardDimensions((prev) => {
-            if (Math.abs(prev.width - clientWidth) < 8 && Math.abs(prev.height - clientHeight) < 8) {
+            if (Math.abs(prev.width - w) < 16 && Math.abs(prev.height - h) < 16) {
               return prev;
             }
-            return { width: clientWidth, height: clientHeight };
+            return { width: Math.round(w), height: Math.round(h) };
           });
         }
-      }
+      });
     };
+
     updateDims();
     const ro = new ResizeObserver(updateDims);
-    ro.observe(boardFeltRef.current);
-    return () => ro.disconnect();
+    ro.observe(el);
+    return () => {
+      cancelAnimationFrame(animId);
+      ro.disconnect();
+    };
   }, []);
 
   const isMyTurn = match.currentTurnUserId === currentUserId;
@@ -142,29 +155,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     ? Math.max(...match.boardChain.map((t) => t.orderIndex))
     : -1;
 
-
-
-  // Auto-skip countdown if canSkip is active
-  useEffect(() => {
-    if (!canSkip || !isMyTurn) {
-      setAutoSkipSeconds(3);
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setAutoSkipSeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          onSkip();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [canSkip, isMyTurn, onSkip]);
-
   // Board Drop Handlers for Drag-to-Play
   const handleBoardDragOver = (e: React.DragEvent<HTMLDivElement>, end: BoardEnd) => {
     e.preventDefault();
@@ -186,10 +176,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     }
   };
 
-
-
   return (
     <div
+      ref={tableContainerRef}
       className="game-table-container"
       style={{
         flex: 1,
@@ -204,37 +193,39 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         boxShadow: 'inset 0 0 70px rgba(0, 0, 0, 0.85), 0 12px 35px rgba(0, 0, 0, 0.65)'
       }}
     >
-      {/* Top Header: Scoreboard & Distinct Controls Bar */}
+      {/* Top Header: Organized via Flexbox into 4 Distinct Logical Groups */}
       <div
         className="game-table-header"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0.45rem 1.15rem',
-          background: 'rgba(26, 18, 12, 0.88)',
+          flexWrap: 'wrap',
+          gap: '0.65rem',
+          padding: '0.45rem 1rem',
+          background: 'rgba(26, 18, 12, 0.92)',
           borderBottom: '1px solid rgba(229, 231, 235, 0.15)',
-          backdropFilter: 'blur(8px)',
+          backdropFilter: 'blur(10px)',
           zIndex: 20
         }}
       >
-        {/* Match info: Round & Score */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+        {/* Group 1: Match & Round Information */}
+        <div className="toolbar-group match-info-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>الجولة</span>
-            <strong style={{ fontSize: '1.1rem', color: 'var(--platinum-silver)' }}>{match.roundNumber}</strong>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'block' }}>الجولة</span>
+            <strong style={{ fontSize: '1.05rem', color: 'var(--platinum-silver)' }}>{match.roundNumber}</strong>
           </div>
 
-          <div style={{ height: 24, width: 1, background: 'rgba(255, 255, 255, 0.12)' }} />
+          <div style={{ height: 22, width: 1, background: 'rgba(255, 255, 255, 0.12)' }} />
 
           <div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'block' }}>
               {match.mode === GameMode.Quadruple ? 'النتيجة (فريقك - الخصم)' : 'النتيجة (101 بنط)'}
             </span>
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
               <span
                 style={{
-                  fontSize: '1.2rem',
+                  fontSize: '1.15rem',
                   fontWeight: 900,
                   color: myPlayer?.teamIndex === 2 ? '#60a5fa' : 'var(--platinum-light)'
                 }}
@@ -244,7 +235,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               <span style={{ color: '#64748b', fontWeight: 800 }}>:</span>
               <span
                 style={{
-                  fontSize: '1.2rem',
+                  fontSize: '1.15rem',
                   fontWeight: 900,
                   color: myPlayer?.teamIndex === 2 ? 'var(--platinum-light)' : '#60a5fa'
                 }}
@@ -255,13 +246,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           </div>
         </div>
 
-        {/* Turn Status Pill & Timer */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+        {/* Group 2: Turn Status & Timer Controls */}
+        <div className="toolbar-group turn-timer-group" style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
           <div
             style={{
-              padding: '0.22rem 0.8rem',
+              padding: '0.22rem 0.75rem',
               borderRadius: '9999px',
-              fontSize: '0.82rem',
+              fontSize: '0.8rem',
               fontWeight: 800,
               background: isMyTurn ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#2a221b',
               color: isMyTurn ? '#000' : '#f8fafc',
@@ -273,37 +264,35 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           </div>
 
           <TurnTimerPill turnDeadlineUtc={match.turnDeadlineUtc} />
-        </div>
 
-        {/* Header Action Controls */}
-        <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>
           {isMyTurn && canSkip && (
-            <button
-              className="btn btn-danger"
-              onClick={onSkip}
-              style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', gap: '0.3rem' }}
-            >
-              <SkipForward size={14} />
-              <span>{STRINGS.skipTurn} ({autoSkipSeconds})</span>
-            </button>
+            <AutoSkipButton onSkip={onSkip} initialSeconds={3} />
           )}
 
           {match.mode === GameMode.Quadruple && onRequestTeammateStart && !isMyTurn && (
             <button
               className="btn btn-secondary"
               onClick={onRequestTeammateStart}
-              style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', gap: '0.25rem' }}
+              style={{ padding: '0.32rem 0.65rem', fontSize: '0.75rem', gap: '0.25rem' }}
+              title="طلب بداية الجولة بدلاً من الزميل"
             >
               <Hand size={13} />
               <span>طلب البداية</span>
             </button>
+          )}
+        </div>
+
+        {/* Group 3: Audio & Voice Controls */}
+        <div className="toolbar-group audio-controls-group" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          {roomCode && (
+            <VoiceChatControls roomCode={roomCode} compact={true} />
           )}
 
           {onOpenSoundboard && (
             <button
               className="btn btn-primary"
               onClick={onOpenSoundboard}
-              style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', gap: '0.3rem' }}
+              style={{ padding: '0.32rem 0.65rem', fontSize: '0.78rem', gap: '0.3rem' }}
               title="ريأكشنات وأصوات القهوة"
             >
               <Volume2 size={14} />
@@ -315,21 +304,30 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             <button
               className="btn btn-secondary"
               onClick={onOpenSoundSettings}
-              style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem' }}
+              style={{ padding: '0.32rem 0.55rem', fontSize: '0.75rem' }}
               title="إعدادات الصوت"
             >
-              <Sliders size={15} />
+              <Sliders size={14} />
             </button>
           )}
+        </div>
 
+        {/* Group 4: Exit Control (Separate & Isolated) */}
+        <div className="toolbar-group exit-controls-group" style={{ display: 'flex', alignItems: 'center' }}>
           {onExitGame && (
             <button
               className="btn btn-secondary"
               onClick={() => setIsExitModalOpen(true)}
-              style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+              style={{
+                padding: '0.32rem 0.65rem',
+                fontSize: '0.78rem',
+                color: '#f87171',
+                borderColor: 'rgba(239, 68, 68, 0.4)',
+                background: 'rgba(239, 68, 68, 0.08)'
+              }}
               title="مغادرة الماتش"
             >
-              <LogOut size={15} />
+              <LogOut size={14} />
               <span style={{ marginRight: '0.25rem' }}>خروج</span>
             </button>
           )}
@@ -348,17 +346,19 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           overflow: 'hidden'
         }}
       >
-        {/* Top Opponent (or Teammate in Quadruple) */}
-        {topPlayer && (
-          <div
-            style={{
-              gridColumn: '1 / -1',
-              display: 'flex',
-              justifyContent: 'center',
-              paddingTop: '0.3rem',
-              zIndex: 10
-            }}
-          >
+        {/* Top Opponent (Across table in 1v1, 3p, or 4p) */}
+        <div
+          style={{
+            gridColumn: '1 / -1',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingTop: '0.35rem',
+            paddingBottom: '0.2rem',
+            zIndex: 10
+          }}
+        >
+          {topPlayer && (
             <ConcealedHandView
               displayName={topPlayer.displayName}
               tileCount={topPlayer.tileCount}
@@ -369,17 +369,18 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               position="top"
               isTeammate={match.mode === GameMode.Quadruple && topPlayer.teamIndex === myPlayer.teamIndex}
             />
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Left Opponent (in Quadruple Mode) */}
+        {/* Left Opponent (in 4p Quadruple mode) */}
         {leftPlayer && (
           <div
             style={{
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              paddingLeft: '0.5rem',
+              paddingLeft: '0.75rem',
               zIndex: 10
             }}
           >
@@ -396,56 +397,67 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           </div>
         )}
 
-        {/* Center Felt Board with Continuous Domino Chain Layout */}
+        {/* Center Board Green Felt with Continuous Chain */}
         <div
-          ref={boardFeltRef}
-          className="domino-board-felt"
+          className="board-felt-canvas"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem',
+            flex: 1,
             position: 'relative',
+            margin: '0.45rem',
+            borderRadius: '1rem',
             overflow: 'auto',
-            width: '100%',
-            height: '100%'
+            background: 'radial-gradient(ellipse at center, #19523a 0%, #113c2a 65%, #092318 100%)',
+            border: '2px solid rgba(229, 231, 235, 0.1)',
+            boxShadow: 'inset 0 0 45px rgba(0, 0, 0, 0.75)'
           }}
         >
           {match.boardChain.length === 0 ? (
             <div
               style={{
-                textAlign: 'center',
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
                 color: 'rgba(255, 255, 255, 0.45)',
-                userSelect: 'none',
-                padding: '2rem'
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                gap: '0.5rem',
+                pointerEvents: 'none'
               }}
             >
-              <div style={{ fontSize: '3rem', marginBottom: '0.5rem', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }}>
-                🀄
+              <div
+                style={{
+                  width: 56,
+                  height: 28,
+                  borderRadius: 6,
+                  border: '2px dashed rgba(255, 255, 255, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.75rem'
+                }}
+              >
+                6 | 6
               </div>
-              <p style={{ fontSize: '1.15rem', fontWeight: 800 }}>
-                تربيزة الدومينو جاهزة! {isMyTurn ? 'العب أول ورقة للبدء' : 'في انتظار أول ورقة...'}
-              </p>
-              {match.roundNumber === 1 && (
-                <p style={{ fontSize: '0.85rem', color: 'var(--platinum-silver)', marginTop: '0.3rem' }}>
-                  الجولة الأولى تبدأ بالدوش (6-6)
-                </p>
-              )}
+              <span>{STRINGS.waitingFirstMove}</span>
             </div>
           ) : (
             <div
-              className="continuous-domino-canvas"
+              className="domino-chain-layout"
               style={{
-                position: 'relative',
+                position: 'absolute',
+                left: `${layoutResult.offsetX}px`,
+                top: `${layoutResult.offsetY}px`,
                 width: `${layoutResult.boundingBox.width}px`,
                 height: `${layoutResult.boundingBox.height}px`,
                 transform: `scale(${layoutResult.scale})`,
-                transformOrigin: 'center center',
-                transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                flexShrink: 0
+                transformOrigin: '0 0',
+                transition: 'transform 0.2s ease-out'
               }}
             >
-              {/* Left End Drop Zone */}
+              {/* Left End Connection Point / Drop Zone */}
               {layoutResult.leftDropZone && (
                 <div
                   className={`board-end-drop-zone left-zone ${dragOverEnd === BoardEnd.Left ? 'active-drop' : ''} ${
@@ -463,11 +475,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                     width: `${layoutResult.leftDropZone.width}px`,
                     height: `${layoutResult.leftDropZone.height}px`
                   }}
-                  title={`طرف مفتوح: ${layoutResult.leftDropZone.openPip}${isChoiceActive ? ' - اضغط هنا للعب شمال' : ''}`}
+                  title={isChoiceActive ? 'اضغط هنا للعب على هذا الطرف' : 'نقطة اتصال الطرف المفتوح'}
                 >
-                  <span className="end-badge">
-                    طرف {layoutResult.leftDropZone.openPip} {isChoiceActive ? '👈 شمال' : ''}
-                  </span>
+                  {isChoiceActive ? (
+                    <span className="endpoint-action-badge left">👈 العب هنا</span>
+                  ) : (
+                    <div className="endpoint-beacon" />
+                  )}
                 </div>
               )}
 
@@ -477,7 +491,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 return (
                   <div
                     key={`${placed.tileId}-${placed.orderIndex}`}
-                    className="chain-tile-container"
+                    className={`chain-tile-container ${placed.isLeftOpenEnd ? 'is-left-open' : ''} ${placed.isRightOpenEnd ? 'is-right-open' : ''}`}
                     style={{
                       position: 'absolute',
                       left: `${placed.x - layoutResult.boundingBox.minX}px`,
@@ -502,7 +516,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 );
               })}
 
-              {/* Right End Drop Zone */}
+              {/* Right End Connection Point / Drop Zone */}
               {layoutResult.rightDropZone && (
                 <div
                   className={`board-end-drop-zone right-zone ${dragOverEnd === BoardEnd.Right ? 'active-drop' : ''} ${
@@ -520,11 +534,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                     width: `${layoutResult.rightDropZone.width}px`,
                     height: `${layoutResult.rightDropZone.height}px`
                   }}
-                  title={`طرف مفتوح: ${layoutResult.rightDropZone.openPip}${isChoiceActive ? ' - اضغط هنا للعب يمين' : ''}`}
+                  title={isChoiceActive ? 'اضغط هنا للعب على هذا الطرف' : 'نقطة اتصال الطرف المفتوح'}
                 >
-                  <span className="end-badge">
-                    طرف {layoutResult.rightDropZone.openPip} {isChoiceActive ? '👉 يمين' : ''}
-                  </span>
+                  {isChoiceActive ? (
+                    <span className="endpoint-action-badge right">👉 العب هنا</span>
+                  ) : (
+                    <div className="endpoint-beacon" />
+                  )}
                 </div>
               )}
             </div>
@@ -583,4 +599,4 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       />
     </div>
   );
-};
+});

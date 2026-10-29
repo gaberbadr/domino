@@ -7,9 +7,10 @@ import { Mic, MicOff, Volume2, VolumeX, AlertCircle, Radio } from 'lucide-react'
 
 interface VoiceChatControlsProps {
   roomCode: string;
+  compact?: boolean;
 }
 
-export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({ roomCode }) => {
+export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({ roomCode, compact = false }) => {
   const [isMicMuted, setIsMicMuted] = useState(true);
   const [isSpeakerMuted, setIsSpeakerMuted] = useState(false);
   const [peers, setPeers] = useState<VoicePeerState[]>([]);
@@ -109,13 +110,13 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({ roomCode }
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '0.65rem',
-        background: 'rgba(32, 23, 16, 0.92)',
-        border: '1px solid rgba(229, 231, 235, 0.25)',
-        padding: '0.4rem 0.85rem',
+        gap: compact ? '0.35rem' : '0.65rem',
+        background: compact ? 'rgba(255, 255, 255, 0.05)' : 'rgba(32, 23, 16, 0.92)',
+        border: compact ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(229, 231, 235, 0.25)',
+        padding: compact ? '0.2rem 0.5rem' : '0.4rem 0.85rem',
         borderRadius: '9999px',
         backdropFilter: 'blur(8px)',
-        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.65)',
+        boxShadow: compact ? 'none' : '0 4px 15px rgba(0, 0, 0, 0.65)',
         position: 'relative'
       }}
     >
@@ -124,18 +125,18 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({ roomCode }
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '0.3rem',
-          fontSize: '0.75rem',
+          gap: '0.25rem',
+          fontSize: compact ? '0.7rem' : '0.75rem',
           fontWeight: 700,
           color: peers.length > 0 ? '#10b981' : 'var(--platinum-silver)',
-          padding: '0.15rem 0.45rem',
+          padding: '0.12rem 0.4rem',
           borderRadius: '9999px',
           background: 'rgba(255, 255, 255, 0.06)'
         }}
         title="حالة الاتصال الصوتي"
       >
-        <Radio size={12} className={peers.length > 0 ? 'turn-pulse' : ''} />
-        <span>{peers.length > 0 ? `${peers.length} بالصوت` : 'صوت مباشر'}</span>
+        <Radio size={compact ? 11 : 12} className={peers.length > 0 ? 'turn-pulse' : ''} />
+        <span>{peers.length > 0 ? `${peers.length}` : 'مباشر'}</span>
       </div>
 
       {/* Mic Button */}
@@ -145,8 +146,8 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({ roomCode }
         style={{
           padding: 0,
           borderRadius: '50%',
-          width: 36,
-          height: 36,
+          width: compact ? 28 : 36,
+          height: compact ? 28 : 36,
           background: isMicMuted
             ? '#2d241e'
             : isLocalSpeaking
@@ -163,9 +164,9 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({ roomCode }
           alignItems: 'center',
           justifyContent: 'center'
         }}
-        title={isMicMuted ? 'تشغيل المايكروفون (Muted)' : 'كتم المايكروفون (Active)'}
+        title={isMicMuted ? 'تشغيل المايكروفون' : 'كتم المايكروفون'}
       >
-        {isMicMuted ? <MicOff size={16} /> : <Mic size={16} />}
+        {isMicMuted ? <MicOff size={compact ? 14 : 16} /> : <Mic size={compact ? 14 : 16} />}
       </button>
 
       {/* Speaker Button */}
@@ -175,8 +176,8 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({ roomCode }
         style={{
           padding: 0,
           borderRadius: '50%',
-          width: 36,
-          height: 36,
+          width: compact ? 28 : 36,
+          height: compact ? 28 : 36,
           background: isSpeakerMuted ? '#7f1d1d' : '#2d241e',
           color: isSpeakerMuted ? '#fca5a5' : 'var(--platinum-silver)',
           border: isSpeakerMuted ? '1px solid #ef4444' : '1px solid #4b3e34',
@@ -184,9 +185,9 @@ export const VoiceChatControls: React.FC<VoiceChatControlsProps> = ({ roomCode }
           alignItems: 'center',
           justifyContent: 'center'
         }}
-        title={isSpeakerMuted ? 'تشغيل السماعة (Muted)' : 'كتم السماعة (Active)'}
+        title={isSpeakerMuted ? 'تشغيل السماعة' : 'كتم السماعة'}
       >
-        {isSpeakerMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+        {isSpeakerMuted ? <VolumeX size={compact ? 14 : 16} /> : <Volume2 size={compact ? 14 : 16} />}
       </button>
 
       {/* Peer Speaking Indicators */}

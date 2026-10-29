@@ -1,21 +1,32 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RoundEndResultDto, RoundOutcomeType } from '../types/domino';
 import { STRINGS } from '../constants/strings';
-import { Award, ShieldAlert, Scale, ArrowRightCircle } from 'lucide-react';
+import { Award, ShieldAlert, Scale, ArrowRightCircle, LogOut, CheckCircle2, Loader2 } from 'lucide-react';
 
 interface RoundEndModalProps {
   result: RoundEndResultDto | null;
   onContinue: () => void;
+  onLeave?: () => void;
+  isWaitingOpponent?: boolean;
 }
 
 export const RoundEndModal: React.FC<RoundEndModalProps> = ({
   result,
-  onContinue
+  onContinue,
+  onLeave,
+  isWaitingOpponent = false
 }) => {
+  const [hasAgreed, setHasAgreed] = useState(false);
+
   if (!result || result.isMatchCompleted) return null;
 
   const isDraw = result.outcomeType === RoundOutcomeType.Draw;
   const isBlocked = result.outcomeType === RoundOutcomeType.BlockedWin;
+
+  const handleContinueClick = () => {
+    setHasAgreed(true);
+    onContinue();
+  };
 
   return (
     <div className="modal-overlay">
@@ -109,7 +120,8 @@ export const RoundEndModal: React.FC<RoundEndModalProps> = ({
                 borderRadius: '0.75rem',
                 padding: '0.75rem 1rem',
                 color: '#6ee7b7',
-                fontSize: '0.9rem'
+                fontSize: '0.9rem',
+                marginBottom: '1.25rem'
               }}
             >
               <ArrowRightCircle size={20} />
@@ -124,12 +136,72 @@ export const RoundEndModal: React.FC<RoundEndModalProps> = ({
               </div>
             </div>
           )}
+
+          {/* Standard Arabic Next-Round Prompt */}
+          <div
+            style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '0.85rem',
+              padding: '0.9rem',
+              textAlign: 'center'
+            }}
+          >
+            <p style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.4rem' }}>
+              انتقل إلى الجولة التالية؟
+            </p>
+            {(hasAgreed || isWaitingOpponent) && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  fontSize: '0.88rem',
+                  color: '#34d399',
+                  marginTop: '0.5rem'
+                }}
+              >
+                <Loader2 size={16} className="animate-spin" />
+                <span>تم تسجيل موافقتك.. في انتظار موافقة اللاعب الآخر للبدء</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="modal-footer" style={{ justifyContent: 'center' }}>
-          <button className="btn btn-primary" onClick={onContinue} style={{ width: '100%' }}>
-            الجولة اللي بعدها 🎲
+        <div className="modal-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+          <button
+            className="btn btn-primary"
+            onClick={handleContinueClick}
+            disabled={hasAgreed || isWaitingOpponent}
+            style={{ flex: 1.5, padding: '0.75rem 1rem', fontSize: '1rem', fontWeight: 800 }}
+          >
+            {hasAgreed || isWaitingOpponent ? (
+              <>
+                <CheckCircle2 size={18} />
+                <span>في الانتظار...</span>
+              </>
+            ) : (
+              <span>الجولة التالية 🎲</span>
+            )}
           </button>
+
+          {onLeave && (
+            <button
+              className="btn btn-secondary"
+              onClick={onLeave}
+              style={{
+                flex: 1,
+                padding: '0.75rem 1rem',
+                fontSize: '0.95rem',
+                color: '#f87171',
+                borderColor: 'rgba(239, 68, 68, 0.4)'
+              }}
+            >
+              <LogOut size={16} />
+              <span>مغادرة</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

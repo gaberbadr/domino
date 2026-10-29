@@ -325,6 +325,19 @@ export const GamePage: React.FC<GamePageProps> = ({
       showToastRef.current(`📢 ${senderDisplayName} شغّل: ${soundKey}`, 'info');
     });
 
+    // 12. Next Round Agreement and Start
+    conn.on('NextRoundAgreed', (userId: string, agreedCount: number, totalRequired: number) => {
+      const p = matchRef.current.players.find((x) => x.userId === userId);
+      showToastRef.current(`${p?.displayName || 'لاعب'} وافق على الجولة التالية (${agreedCount}/${totalRequired})`, 'info');
+    });
+
+    conn.on('NextRoundStarted', (updatedMatch: GameMatchDto) => {
+      setRoundEndResult(null);
+      setChoiceTile(null);
+      setMatch(updatedMatch);
+      showToastRef.current(`بدأت الجولة ${updatedMatch.roundNumber}!`, 'success');
+    });
+
     return () => {
       conn.off('BoardUpdated');
       conn.off('HandUpdated');
@@ -339,6 +352,8 @@ export const GamePage: React.FC<GamePageProps> = ({
       conn.off('TeammateStartRequested');
       conn.off('TeammateStartDecision');
       conn.off('SoundboardClipPlayed');
+      conn.off('NextRoundAgreed');
+      conn.off('NextRoundStarted');
     };
   }, []);
 
@@ -504,18 +519,6 @@ export const GamePage: React.FC<GamePageProps> = ({
         </div>
       )}
 
-      {/* Floating Voice Chat Control (Compact Top Corner) */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '0.75rem',
-          left: '1rem',
-          zIndex: 40
-        }}
-      >
-        <VoiceChatControls roomCode={roomCode} />
-      </div>
-
       {/* Main Table Board */}
       <GameBoard
         match={match}
@@ -524,6 +527,7 @@ export const GamePage: React.FC<GamePageProps> = ({
         canSkip={privateState.canSkip}
         isDrawing={isDrawing}
         isChoiceActive={choiceTile !== null}
+        roomCode={roomCode}
         onDraw={handleDraw}
         onSkip={handleSkip}
         onRequestTeammateStart={handleRequestTeammateStart}
@@ -562,10 +566,19 @@ export const GamePage: React.FC<GamePageProps> = ({
         onDismiss={() => setInvalidDealNotice(null)}
       />
 
-      {/* Round End Modal */}
+      {/* Round End Modal with Standard Continue/Leave Actions */}
       <RoundEndModal
         result={roundEndResult}
-        onContinue={() => setRoundEndResult(null)}
+        onContinue={async () => {
+          if (roundEndResult) {
+            try {
+              await api.game.continueNextRound(roundEndResult.matchId);
+            } catch (err: any) {
+              showToast(err.message || 'فشل تسجيل الرغبة في المتابعة', 'error');
+            }
+          }
+        }}
+        onLeave={onExitGame}
       />
 
       {/* Match End Modal */}
