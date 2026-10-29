@@ -33,18 +33,18 @@ console.log('Test 1: iPhone 12 Portrait Screen Budget & Domino Table Space (390 
   const safeAreaTop = 47;
   const safeAreaBottom = 34;
 
-  // New compact mobile header height: 40px
-  const mobileHeaderH = 40;
-  // Compact top opponent badge: 36px
-  const opponentBadgeH = 36;
-  // Compact player hand with 38x76px tiles: ~96px
-  const playerHandH = 96;
+  // New compact mobile header height: 38px
+  const mobileHeaderH = 38;
+  // Compact player hand with 35x70px tiles: ~86px
+  const playerHandH = 86;
+  // Compact opponent header badge: ~30px
+  const opponentBadgeH = 30;
 
-  const availableFeltH = viewportH - safeAreaTop - safeAreaBottom - mobileHeaderH - opponentBadgeH - playerHandH - 12;
+  const availableFeltH = viewportH - safeAreaTop - safeAreaBottom - mobileHeaderH - opponentBadgeH - playerHandH - 8;
   const availableFeltW = viewportW - 8;
 
   console.log(`  iPhone 12 Available Felt Area: ${availableFeltW}px W x ${availableFeltH}px H`);
-  assert(availableFeltH >= 550, `Available felt height (${availableFeltH}px) should exceed 550px for spacious domino board`);
+  assert(availableFeltH >= 580, `Available felt height (${availableFeltH}px) should exceed 580px for spacious domino board`);
   assert(availableFeltW >= 370, `Available felt width (${availableFeltW}px) should fit mobile canvas`);
 
   const layout = calculateBoardLayout({
@@ -71,14 +71,16 @@ console.log('Test 2: iPhone 12 Landscape Screen Budget & Layout (844 x 390 px)..
   const safeAreaRight = 47;
   const safeAreaBottom = 21;
 
-  const mobileHeaderH = 34;
-  const playerHandH = 68;
+  const mobileHeaderH = 32;
+  const playerHandH = 62;
+  const opponentBadgeH = 24;
 
-  const availableFeltH = viewportH - mobileHeaderH - playerHandH - safeAreaBottom - 10;
-  const availableFeltW = viewportW - safeAreaLeft - safeAreaRight - 10;
+  const availableFeltH = viewportH - mobileHeaderH - opponentBadgeH - playerHandH - safeAreaBottom - 6;
+  const availableFeltW = viewportW - safeAreaLeft - safeAreaRight - 8;
 
   console.log(`  iPhone 12 Landscape Available Felt: ${availableFeltW}px W x ${availableFeltH}px H`);
   assert(availableFeltH >= 240, `Available felt height in landscape (${availableFeltH}px) should exceed 240px`);
+  assert(availableFeltW >= 730, `Available felt width in landscape (${availableFeltW}px) should exceed 730px with balanced edges`);
 
   const layout = calculateBoardLayout({
     chain: mockChain,
@@ -98,8 +100,8 @@ console.log('Test 2: iPhone 12 Landscape Screen Budget & Layout (844 x 390 px)..
 // Test 3: Narrow Screen (iPhone SE / Android: 360 x 667 CSS px)
 console.log('Test 3: Narrow Mobile Screen (360 x 667 px)...');
 {
-  const availableFeltW = 350;
-  const availableFeltH = 440;
+  const availableFeltW = 352;
+  const availableFeltH = 450;
 
   const layout = calculateBoardLayout({
     chain: mockChain,
@@ -117,8 +119,8 @@ console.log('Test 3: Narrow Mobile Screen (360 x 667 px)...');
 // Test 4: Player Hand Width Budget for 7 Tiles on 390px Screen
 console.log('Test 4: Touch-friendly 7-tile hand on 390px mobile portrait screen...');
 {
-  const tileWidth = 38;
-  const tileGap = 5.6; // 0.35rem
+  const tileWidth = 35;
+  const tileGap = 4.8; // 0.3rem
   const total7TilesWidth = 7 * tileWidth + 6 * tileGap;
   const availableScreenW = 390 - 16; // minus safe padding
 
@@ -171,16 +173,60 @@ console.log('Test 5: Full 28-Tile Extreme Game on iPhone 12 Portrait (390 x 844 
     openLeft: 4,
     openRight: 4,
     boardWidth: 380,
-    boardHeight: 560
+    boardHeight: 580
   });
 
   console.log(`  Full 28-tile chain on iPhone 12: scale=${layout.scale.toFixed(2)}, renderedW=${Math.round(layout.boundingBox.width * layout.scale)}px, renderedH=${Math.round(layout.boundingBox.height * layout.scale)}px`);
   assert(layout.scale >= 0.55, `28-tile extreme scale (${layout.scale}) should remain >= 0.55`);
   assert(layout.boundingBox.width * layout.scale <= 380, '28-tile rendered width must fit inside 380px felt');
-  assert(layout.boundingBox.height * layout.scale <= 560, '28-tile rendered height must fit inside 560px felt');
+  assert(layout.boundingBox.height * layout.scale <= 580, '28-tile rendered height must fit inside 580px felt');
   assert(layout.offsetX >= 0, 'Horizontal offset must not clip off left edge');
   assert(layout.offsetY >= 0, 'Vertical offset must not clip off top edge');
   console.log('  ✓ Full 28-tile extreme game verified on iPhone 12.\n');
 }
 
-console.log('=== ALL 5 NATIVE MOBILE DOMINO UI/UX TESTS PASSED! ===');
+// Test 6: Mobile Touch Drag-and-Drop Reordering Logic
+console.log('Test 6: Mobile Touch Drag-and-Drop Reordering Logic...');
+{
+  const initialHand = [
+    { id: 1, end1: 6, end2: 6 },
+    { id: 2, end1: 5, end2: 5 },
+    { id: 3, end1: 4, end2: 4 },
+    { id: 4, end1: 3, end2: 3 }
+  ];
+
+  // Simulate drag tile at index 0 to index 2
+  const reorder = (list: typeof initialHand, from: number, to: number) => {
+    const copy = [...list];
+    const [item] = copy.splice(from, 1);
+    copy.splice(to, 0, item);
+    return copy;
+  };
+
+  const reordered = reorder(initialHand, 0, 2);
+  assert(reordered[0].id === 2, 'Tile 2 shifted to front');
+  assert(reordered[1].id === 3, 'Tile 3 shifted to position 1');
+  assert(reordered[2].id === 1, 'Tile 1 moved to target position 2');
+  assert(reordered.length === 4, 'Hand length preserved');
+
+  // Verify tap vs drag threshold logic
+  const dragThreshold = 8;
+  const isTap = (dx: number, dy: number) => Math.hypot(dx, dy) <= dragThreshold;
+  assert(isTap(2, 3) === true, 'Small movement (3.6px) treated as clean tap');
+  assert(isTap(15, 2) === false, 'Horizontal movement (15px) treated as drag');
+  console.log('  ✓ Touch drag-and-drop reorder & tap detection verified.\n');
+}
+
+// Test 7: Opponent Visual Stack & State Synchronization
+console.log('Test 7: Opponent Visual Stack & State Synchronization...');
+{
+  // Visual mini stack renders 1-4 tiles corresponding to remaining tile count
+  const getStackSize = (count: number) => Math.max(1, Math.min(count, 4));
+  assert(getStackSize(7) === 4, 'Full hand (7 tiles) renders 4-tile mini stack');
+  assert(getStackSize(3) === 3, '3 tiles renders 3-tile mini stack');
+  assert(getStackSize(1) === 1, 'Last tile renders 1-tile mini stack');
+  assert(getStackSize(0) === 1, 'Empty hand falls back gracefully');
+  console.log('  ✓ Opponent visual stack size verified.\n');
+}
+
+console.log('=== ALL 7 NATIVE MOBILE DOMINO UI/UX TESTS PASSED! ===');

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DominoTile, LegalMoveDto } from '../types/domino';
 import { DominoTileView } from './DominoTileView';
-import { ChevronRight, ChevronLeft, MoveHorizontal } from 'lucide-react';
+import { MoveHorizontal } from 'lucide-react';
 
 interface PlayerHandProps {
   hand: DominoTile[];
@@ -27,6 +27,16 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
   const [draggedTileIndex, setDraggedTileIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
+
+  // Touch Drag-and-Drop state ref (touchscreen reordering on mobile devices)
+  const touchStateRef = useRef<{
+    startX: number;
+    startY: number;
+    currentIndex: number;
+    tile: DominoTile;
+    isDragging: boolean;
+    hasMoved: boolean;
+  } | null>(null);
 
   // Sync hand while preserving user's custom ordering
   useEffect(() => {
@@ -56,7 +66,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
     });
   };
 
-  // Drag-and-drop HTML5 handlers
+  // Drag-and-drop HTML5 handlers (Mouse on Desktop/Laptop)
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number, tile: DominoTile) => {
     setDraggedTileIndex(index);
     e.dataTransfer.effectAllowed = 'move';
@@ -90,17 +100,74 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
     setDragOverIndex(null);
   };
 
-  // Accessible button reordering for keyboard/touch
-  const moveSelectedTile = (direction: 'left' | 'right') => {
-    if (selectedTileId === null) return;
-    const currentIndex = orderedTiles.findIndex((t) => t.id === selectedTileId);
-    if (currentIndex === -1) return;
+  // Touch Drag-and-Drop Handlers (Mobile Touchscreens)
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>, index: number, tile: DominoTile) => {
+    const touch = e.touches[0];
+    touchStateRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      currentIndex: index,
+      tile,
+      isDragging: false,
+      hasMoved: false
+    };
+  };
 
-    // RTL context: 'right' means towards index 0, 'left' means towards higher index
-    const targetIndex = direction === 'right' ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex >= 0 && targetIndex < orderedTiles.length) {
-      reorderTiles(currentIndex, targetIndex);
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!touchStateRef.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStateRef.current.startX;
+    const dy = touch.clientY - touchStateRef.current.startY;
+    const dist = Math.hypot(dx, dy);
+
+    // If moved more than 8px predominantly horizontally, activate reorder mode
+    if (!touchStateRef.current.isDragging && dist > 8) {
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        touchStateRef.current.isDragging = true;
+        touchStateRef.current.hasMoved = true;
+        setDraggedTileIndex(touchStateRef.current.currentIndex);
+      }
     }
+
+    if (touchStateRef.current.isDragging) {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      // Locate which tile wrapper is under the current touch point
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetWrapper = el?.closest('[data-tile-index]');
+      if (targetWrapper) {
+        const targetIdx = Number(targetWrapper.getAttribute('data-tile-index'));
+        if (!isNaN(targetIdx) && targetIdx >= 0 && targetIdx < orderedTiles.length) {
+          setDragOverIndex(targetIdx);
+        }
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>, index: number, tile: DominoTile) => {
+    if (!touchStateRef.current) return;
+    const { isDragging, hasMoved } = touchStateRef.current;
+
+    if (isDragging && dragOverIndex !== null && dragOverIndex !== index) {
+      reorderTiles(index, dragOverIndex);
+    }
+
+    touchStateRef.current = null;
+    setDraggedTileIndex(null);
+    setDragOverIndex(null);
+
+    // If no drag occurred, this was a clean tap -> select or play the tile!
+    if (!hasMoved) {
+      setSelectedTileId(tile.id);
+      onTileClick(tile);
+    }
+  };
+
+  const handleTouchCancel = () => {
+    touchStateRef.current = null;
+    setDraggedTileIndex(null);
+    setDragOverIndex(null);
   };
 
   return (
@@ -110,7 +177,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
         background: 'linear-gradient(180deg, rgba(32, 23, 16, 0.98) 0%, rgba(18, 13, 9, 0.99) 100%)',
         borderTop: '2px solid rgba(229, 231, 235, 0.25)',
         boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.8)',
-        padding: '0.55rem 1rem 0.75rem',
+        padding: '0.45rem 1rem 0.6rem',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -118,20 +185,21 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
         position: 'relative'
       }}
     >
-      {/* Hand Header: Info & Reorder tools */}
+      {/* Hand Header: Info & Reorder tips */}
       <div
+        className="player-hand-header"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           width: '100%',
           maxWidth: '1000px',
-          marginBottom: '0.35rem',
+          marginBottom: '0.25rem',
           padding: '0 0.5rem'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>
             ورقك في اليد ({hand.length} ورقات)
           </span>
 
@@ -150,51 +218,16 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
           </span>
         </div>
 
-        {/* Turn & Playable info or Accessibility Reorder controls */}
+        {/* Playable count pill */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {selectedTileId !== null && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                background: 'rgba(255, 255, 255, 0.08)',
-                padding: '0.15rem 0.4rem',
-                borderRadius: '6px'
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => moveSelectedTile('right')}
-                className="btn btn-secondary"
-                style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem' }}
-                title="تحريك الورقة يميناً"
-              >
-                <ChevronRight size={14} />
-              </button>
-              <span style={{ fontSize: '0.7rem', color: 'var(--platinum-silver)', fontWeight: 700 }}>
-                ترتيب يدوي
-              </span>
-              <button
-                type="button"
-                onClick={() => moveSelectedTile('left')}
-                className="btn btn-secondary"
-                style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem' }}
-                title="تحريك الورقة يساراً"
-              >
-                <ChevronLeft size={14} />
-              </button>
-            </div>
-          )}
-
           {isMyTurn && legalMoves.length > 0 && (
             <span
               style={{
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 fontWeight: 800,
                 color: '#10b981',
                 background: 'rgba(16, 185, 129, 0.15)',
-                padding: '0.2rem 0.6rem',
+                padding: '0.15rem 0.55rem',
                 borderRadius: '9999px',
                 border: '1px solid rgba(16, 185, 129, 0.3)'
               }}
@@ -205,20 +238,21 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
         </div>
       </div>
 
-      {/* Tiles Carousel / Horizontally Scrollable Row */}
+      {/* Tiles Row / Touch-reorderable container */}
       <div
         className="hand-tiles-row"
         style={{
           display: 'flex',
-          gap: orderedTiles.length > 8 ? '0.4rem' : '0.65rem',
+          gap: orderedTiles.length > 8 ? '0.35rem' : '0.55rem',
           overflowX: 'auto',
           overflowY: 'hidden',
-          padding: '0.4rem 0.5rem 0.6rem',
+          padding: '0.3rem 0.4rem 0.45rem',
           maxWidth: '100%',
           width: '100%',
           justifyContent: orderedTiles.length <= 7 ? 'center' : 'flex-start',
           alignItems: 'center',
-          scrollBehavior: 'smooth'
+          scrollBehavior: 'smooth',
+          touchAction: 'pan-x'
         }}
       >
         {orderedTiles.map((tile, index) => {
@@ -231,17 +265,23 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
           return (
             <div
               key={tile.id}
+              data-tile-index={index}
               className={`hand-tile-wrapper ${isBeingDragged ? 'is-dragged' : ''} ${
                 isTargeted ? 'is-drop-target' : ''
               } ${recentlyDrawnTileId === tile.id ? 'just-drawn' : ''}`}
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={(e) => handleDrop(e, index)}
+              onTouchStart={(e) => handleTouchStart(e, index, tile)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={(e) => handleTouchEnd(e, index, tile)}
+              onTouchCancel={handleTouchCancel}
               style={{
                 flexShrink: 0,
                 position: 'relative',
-                transform: isTargeted ? 'scale(1.08)' : isSelected ? 'translateY(-10px)' : 'none',
-                transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                padding: '0 2px'
+                transform: isTargeted ? 'scale(1.08)' : isSelected ? 'translateY(-8px)' : 'none',
+                transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                padding: '0 2px',
+                touchAction: 'none'
               }}
             >
               {/* Drop Target Marker */}
@@ -260,8 +300,11 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                 onDragStart={(e) => handleDragStart(e, index, tile)}
                 onDragEnd={handleDragEnd}
                 onClick={() => {
-                  setSelectedTileId(tile.id);
-                  onTileClick(tile);
+                  // Only handle desktop mouse clicks here; touch is handled cleanly in handleTouchEnd
+                  if (!('ontouchstart' in window) || window.matchMedia('(pointer: fine)').matches) {
+                    setSelectedTileId(tile.id);
+                    onTileClick(tile);
+                  }
                 }}
               />
             </div>

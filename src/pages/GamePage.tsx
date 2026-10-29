@@ -552,7 +552,7 @@ export const GamePage: React.FC<GamePageProps> = ({
         background: 'var(--bg-main)',
         overflow: 'hidden',
         paddingTop: 'env(safe-area-inset-top, 0px)',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingBottom: 0,
         paddingLeft: 'env(safe-area-inset-left, 0px)',
         paddingRight: 'env(safe-area-inset-right, 0px)',
         touchAction: 'manipulation'
