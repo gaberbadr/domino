@@ -450,6 +450,11 @@ export const HomePage: React.FC<HomePageProps> = ({
           <span style={{ fontSize: '0.8rem', color: '#5e564e', marginTop: '0.5rem' }}>
             جميع الحقوق محفوظة © {new Date().getFullYear()}
           </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.75rem', fontSize: '0.85rem' }}>
+            <span>تم إنشاؤه بواسطة</span>
+            <strong style={{ color: 'var(--gold-primary)' }}>جابر بدر</strong>
+            <span dir="rtl">للتواصل: 01019806684</span>
+          </div>
         </div>
       </footer>
     </div>
