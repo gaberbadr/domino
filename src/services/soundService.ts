@@ -11,22 +11,10 @@ export interface ReplaySoundItem {
 // 13 iconic Egyptian meme/soundboard clips supplied in Replay Sounds
 export const REPLAY_SOUNDS_CATALOG: ReplaySoundItem[] = [
   {
-    key: 'ابراهيم ارحمني',
-    label: 'ابراهيم ارحمني',
-    fileName: 'ابراهيم ارحمني.mp3',
-    url: '/sounds/replay/ابراهيم ارحمني.mp3'
-  },
-  {
     key: 'الله اكبر عليك',
     label: 'الله اكبر عليك',
     fileName: 'الله اكبر عليك.mp3',
     url: '/sounds/replay/الله اكبر عليك.mp3'
-  },
-  {
-    key: 'بقت عمليه شخصيه بهجت صابر',
-    label: 'بقت عمليه شخصيه بهجت صابر',
-    fileName: 'بقت عمليه شخصيه بهجت صابر.mp3',
-    url: '/sounds/replay/بقت عمليه شخصيه بهجت صابر.mp3'
   },
   {
     key: 'بهجت صابر هوبا الاسد جي',
@@ -41,28 +29,10 @@ export const REPLAY_SOUNDS_CATALOG: ReplaySoundItem[] = [
     url: '/sounds/replay/حبيب دين امي.mp3'
   },
   {
-    key: 'خنجرين بهجت صابر',
-    label: 'خنجرين بهجت صابر',
-    fileName: 'خنجرين بهجت صابر.mp3',
-    url: '/sounds/replay/خنجرين بهجت صابر.mp3'
-  },
-  {
     key: 'دمرتني',
     label: 'دمرتني',
     fileName: 'دمرتني.mp3',
     url: '/sounds/replay/دمرتني.mp3'
-  },
-  {
-    key: 'عاوزين نعملك بني ادم يا كلب',
-    label: 'عاوزين نعملك بني ادم يا كلب',
-    fileName: 'عاوزين نعملك بني ادم يا كلب.mp3',
-    url: '/sounds/replay/عاوزين نعملك بني ادم يا كلب.mp3'
-  },
-  {
-    key: 'عنتيل المحلة',
-    label: 'عنتيل المحلة',
-    fileName: 'عنتيل المحلة.mp3',
-    url: '/sounds/replay/عنتيل المحلة.mp3'
   },
   {
     key: 'كلنا عندنا وانت معندكش',
@@ -82,12 +52,6 @@ export const REPLAY_SOUNDS_CATALOG: ReplaySoundItem[] = [
     fileName: 'يا ابن اللعيبه.mp3',
     url: '/sounds/replay/يا ابن اللعيبه.mp3'
   },
-  {
-    key: 'يا عمرو دياب يا خوو',
-    label: 'يا عمرو دياب يا خوو',
-    fileName: 'يا عمرو دياب يا خوو.mp3',
-    url: '/sounds/replay/يا عمرو دياب يا خوو.mp3'
-  }
 ];
 
 export type GameplaySoundType = 'play' | 'shuffle' | 'take' | 'drawOrClose' | 'skip';
